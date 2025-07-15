@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains a modern, cross-platform CLI tool designed to remove specific extended attributes (xattr) from files, particularly targeting Dropbox and Apple File Provider ignore attributes:
+This repository contains a modern, cross-platform CLI tool designed to prevent Dropbox from syncing unwanted files by adding ignore markers:
 
-- **`dbx-ignore`** - Cross-platform Rust CLI with full git compatibility and comprehensive platform support
+- **`dbx-ignore`** - Cross-platform Rust CLI that adds ignore markers to build artifacts, dependencies, and temporary files
 
 ## Key Files
 
@@ -23,32 +23,33 @@ This repository contains a modern, cross-platform CLI tool designed to remove sp
 ## Git Integration Behavior
 
 ### Implementation (`dbx-ignore`)
-- **Full Compatibility**: Delegates all ignore logic to git using `git ls-files --ignored --exclude-standard -o`
+- **Purpose**: Prevents Dropbox sync by adding ignore markers to files
+- **Git Integration**: Uses `git ls-files --ignored --exclude-standard -o` to find files to mark
 - **Supports**: All git ignore features including negated patterns, complex globs, directory-specific rules
 - **Efficiency**: Direct git command execution, no pattern parsing overhead
-- **Maintenance**: Zero burden - automatically compatible with git evolution
-- **Cross-platform**: Works consistently across macOS, Linux, and Windows
+- **Cross-platform**: Adds extended attributes (macOS/Linux) or ADS (Windows)
 
 ## Tool Usage Modes
 
 The tool operates in two modes:
 
 1. **Git mode** (default): 
-   - Uses `git ls-files --ignored --exclude-standard -o` (fully compatible)
+   - Finds files ignored by git and marks them to prevent Dropbox sync
    - Must be run from within a Git repository
    - Automatically finds project root using `git rev-parse --show-toplevel`
 
-2. **Specific files mode**: Processes only the files/directories provided as arguments
-   - Usage: `dbx-ignore file1 file2 directory/`
+2. **Specific files mode**: Marks only the files/directories provided as arguments
+   - Usage: `dbx-ignore target/ node_modules/ dist/`
 
 ## Architecture Notes
 
-- **Platform Abstraction**: Uses trait-based design for cross-platform compatibility
+- **Platform Abstraction**: Uses trait-based design for cross-platform ignore marker support
 - **Modular Structure**: Separate modules for each platform (macOS, Linux, Windows, unsupported)
+- **Ignore Logic**: Adds markers to files that don't already have them
 - **Error Handling**: Comprehensive error handling with anyhow for detailed context
 - **Performance**: Parallel processing with rayon for handling multiple files
 - **Testing**: Extensive test suite with platform-specific test modules
-- **Git Integration**: Direct delegation to git commands for maximum compatibility
+- **Git Integration**: Direct delegation to git commands for file discovery
 
 ## Development Commands
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 # DBX-Ignore Installer Script
-# Automatically downloads and installs the appropriate binary for your platform
+# Automatically downloads and installs the CLI tool to prevent Dropbox sync of unwanted files
 
 set -e
 
@@ -181,6 +181,7 @@ main() {
     print_status "$BLUE" "📖 Quick start:"
     echo "   dbx-ignore --help"
     echo "   dbx-ignore --dry-run --git"
+    echo "   dbx-ignore target/ node_modules/"
     echo ""
     print_status "$BLUE" "📚 Documentation:"
     echo "   https://github.com/$GITHUB_REPO"

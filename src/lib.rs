@@ -48,9 +48,9 @@ pub fn run(config: Config) -> Result<()> {
         println!("{} Platform: {}", "✓".green(), CurrentPlatform::platform_name());
         
         if config.git_mode && config.files.is_empty() {
-            println!("{}", "✓ Mode: Processing git-ignored files".green());
+            println!("{}", "✓ Mode: Adding ignore markers to git-ignored files".green());
         } else {
-            println!("{}", "✓ Mode: Processing specified files".green());
+            println!("{}", "✓ Mode: Adding ignore markers to specified files".green());
         }
     }
 
@@ -121,10 +121,10 @@ pub fn run(config: Config) -> Result<()> {
     if !config.quiet {
         println!("{}", "─".repeat(50));
         if config.dry_run {
-            println!("{} {} files would be processed, {} files would be marked to ignore", 
+            println!("{} {} files would be processed, {} ignore markers would be added", 
                 "🔍".yellow(), final_processed, final_added);
         } else {
-            println!("{} {} files processed, {} files marked to ignore", 
+            println!("{} {} files processed, {} ignore markers added", 
                 "✓".green(), final_processed, final_added);
         }
     }

@@ -221,58 +221,59 @@ dbx-ignore --dry-run --verbose target/ node_modules/
 **Normal mode with progress:**
 ```
 ✓ Platform: macOS
-✓ Mode: Restoring sync for git-ignored files
+✓ Mode: Adding ignore markers to git-ignored files
 ⠁ [00:00:01] [████████████████████████████████████████] 1472/1472 Complete!
 ──────────────────────────────────────────────────
-✓ 1472 files processed, 3 files restored to sync
+✓ 1472 files processed, 245 files marked to ignore
 ```
 
 **Verbose mode:**
 ```
 ✓ Platform: macOS
-✓ Mode: Restoring sync for specified files
-   ✓ target/release/app: sync restored (2 markers removed)
-   - node_modules/: already syncing normally
+✓ Mode: Adding ignore markers to specified files
+   ✓ target/release/app: 2 ignore markers added
+   - node_modules/: already ignored
    ✘ .env.local: Permission denied (os error 13)
 ──────────────────────────────────────────────────
-✓ 2 files processed, 1 file restored to sync
+✓ 2 files processed, 1 file marked to ignore
 ```
 
 **Dry run mode:**
 ```
-🔍 Dry run mode - previewing sync restoration
+🔍 Dry run mode - previewing ignore markers
 ✓ Platform: macOS
 ✓ Mode: Checking specified files
-   ✓ target/release/app: would restore sync (1 marker found)
+   ✓ target/release/app: would add ignore markers (not currently ignored)
 ──────────────────────────────────────────────────
-🔍 1 file would have sync restored
+🔍 1 file would be marked to ignore
 ```
 
 ## 🔧 How It Works
 
-### Sync Control Mechanism
+### Sync Prevention Mechanism
 
-Dropbox and Apple File Provider use hidden markers to control which files sync:
+Dropbox and Apple File Provider respect hidden markers that tell them to skip files:
 
 | Marker | Purpose | Platform |
 |--------|---------|----------|
 | Extended attributes | Mark files as "do not sync" | macOS, Linux |
-| Alternate Data Streams | Windows equivalent (handled gracefully) | Windows |
+| Alternate Data Streams | Windows equivalent | Windows |
 
-**The Problem**: These markers can get stuck on files you actually want to sync, especially:
-- Build artifacts that you later want to share
-- Development folders that become important
-- Files that were temporarily ignored but should sync again
+**The Goal**: Add these markers to files you don't want cluttering your Dropbox:
+- Build artifacts (target/, dist/, build/)
+- Large dependencies (node_modules/, vendor/) 
+- Temporary files (.tmp, .cache, logs)
+- Development-only files that shouldn't be shared
 
 ### Platform Support
 
 | Platform | Architecture | Functionality | Details |
 |----------|-------------|---------------|---------|
-| **macOS** | Intel (x86_64) | ✅ Full sync restoration | Removes extended attributes |
-| **macOS** | Apple Silicon (ARM64) | ✅ Full sync restoration | Removes extended attributes |
-| **Linux** | x86_64 | ✅ Full sync restoration | Removes extended attributes |
-| **Windows** | x86_64 | ✅ Graceful handling | Detects platform, reports status |
-| **Others** | Various | ⚠️ Basic detection | Reports unsupported platform |
+| **macOS** | Intel (x86_64) | ✅ Full ignore support | Adds extended attributes |
+| **macOS** | Apple Silicon (ARM64) | ✅ Full ignore support | Adds extended attributes |
+| **Linux** | x86_64 | ✅ Full ignore support | Adds extended attributes |
+| **Windows** | x86_64 | ✅ Alternate Data Streams | Adds ADS markers |
+| **Others** | Various | ⚠️ Unsupported | Reports platform limitation |
 
 ### Git Integration
 
@@ -299,42 +300,42 @@ The tool delegates all ignore logic to git itself using `git ls-files --ignored 
 - 📦 **Complete Coverage**: All ignore sources included
 - ✅ **Full Feature Support**: Negated patterns, complex globs, directory-specific rules
 
-**Why This Approach:**
-Rather than reimplementing git's complex ignore engine, we delegate to git itself. This ensures:
-- ✅ Zero maintenance burden as git evolves
-- ✅ Perfect compatibility with existing git workflows  
-- ✅ Full support for all git ignore features (negated patterns, complex globs, etc.)
-- ✅ Optimal performance and reduced complexity
+**Why Use Git Integration:**
+Files in `.gitignore` are usually things you don't want to sync to Dropbox either:
+- ✅ Automatically finds build artifacts, dependencies, temp files
+- ✅ Respects your existing ignore patterns and project structure
+- ✅ Supports complex patterns (negation, globs, directory-specific rules)
+- ✅ No need to manually specify every file type to ignore
 
 ## 🔍 Common Use Cases
 
 ### Development Workflow
 ```bash
-# Clean up build artifacts
+# Ignore all build artifacts and dependencies
 dbx-ignore --git --quiet
 
-# Preview what would be cleaned
+# Preview what would be ignored before running
 dbx-ignore --dry-run --verbose
 ```
 
-### CI/CD Integration
+### Project Setup
 ```bash
-# Silent cleanup in scripts
+# Set up a new project to ignore common files
+dbx-ignore target/ node_modules/ dist/ .env.local
+
+# Ignore everything in .gitignore
+dbx-ignore
+```
+
+### Automation
+```bash
+# Add to your build scripts
 dbx-ignore --quiet
 exit_code=$?
 if [ $exit_code -ne 0 ]; then
-    echo "Cleanup failed with exit code $exit_code"
+    echo "Failed to mark files as ignored: $exit_code"
     exit 1
 fi
-```
-
-### Selective Processing
-```bash
-# Clean specific project directories
-dbx-ignore target/ node_modules/ .env.local
-
-# Verbose processing of sensitive files  
-dbx-ignore --verbose ~/.aws/ ~/.ssh/config
 ```
 
 ## 🛠️ Development
@@ -403,7 +404,7 @@ sudo dbx-ignore /protected/path/
 # Initialize git repo or specify files directly
 git init
 # or
-dbx-ignore /specific/files/
+dbx-ignore target/ node_modules/ dist/
 ```
 
 ### Getting Help
