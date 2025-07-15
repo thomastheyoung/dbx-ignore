@@ -1,0 +1,29 @@
+# Multi-stage Docker build for cross-platform binaries
+FROM --platform=$BUILDPLATFORM rust:1.77 as builder
+
+# Install cross-compilation tools
+RUN apt-get update && apt-get install -y \
+    gcc-mingw-w64-x86-64 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Windows target
+RUN rustup target add x86_64-pc-windows-gnu
+
+WORKDIR /app
+COPY . .
+
+# Build for Linux (native)
+RUN cargo build --release --target x86_64-unknown-linux-gnu
+
+# Build for Windows
+ENV CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
+ENV CXX_x86_64_pc_windows_gnu=x86_64-w64-mingw32-g++
+RUN cargo build --release --target x86_64-pc-windows-gnu
+
+# Create final stage with binaries
+FROM alpine:latest as collector
+RUN mkdir -p /output
+COPY --from=builder /app/target/x86_64-unknown-linux-gnu/release/dbx-ignore /output/dbx-ignore-linux-x64
+COPY --from=builder /app/target/x86_64-pc-windows-gnu/release/dbx-ignore.exe /output/dbx-ignore-windows-x64.exe
+
+CMD ["sh", "-c", "cp /output/* /host/ 2>/dev/null || echo 'Mount /host to copy binaries'"]
