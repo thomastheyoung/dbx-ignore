@@ -199,7 +199,7 @@ dbx-ignore [OPTIONS] [FILE]...
 **Actions (mutually exclusive):**
 
 - `-r, --reset` - Remove ignore markers from specified files
-- `-w, --watch` - Start daemon to monitor previously marked files
+- `-w, --watch` - Start daemon to monitor files/patterns (can accept patterns directly)
 - `-u, --unwatch` - Stop the watch daemon
 - `-s, --status` - Show current directory status (git, files, daemon)
 
@@ -271,9 +271,21 @@ dbx-ignore --dry-run --quiet --git
 #### Watch mode
 
 ```bash
-# Start watch daemon
-dbx-ignore target/ node_modules/    # First mark files
-dbx-ignore --watch                  # Then start watching them
+# Watch mode has three behaviors:
+
+# 1. Combined mark & watch (NEW) - mark files and start watching in one command
+dbx-ignore --watch "*.log" "*.tmp"  # Marks matching files AND starts watching
+
+# 2. Pattern-based watching - monitors for files matching previously marked patterns
+dbx-ignore "*.log" "*.tmp"          # Mark files with patterns
+dbx-ignore --watch                  # Watches for any files matching these patterns
+
+# 3. Git-based watching - monitors .gitignore changes (when no patterns/files tracked)
+dbx-ignore --watch                  # Automatically marks/unmarks based on .gitignore
+
+# 4. File-based watching - monitors specific tracked files
+dbx-ignore target/ node_modules/    # Mark specific directories
+dbx-ignore --watch                  # Watches only those specific files
 
 # Check if daemon is running
 dbx-ignore --status
@@ -545,23 +557,84 @@ dbx-ignore --status [--verbose]
 
 ### How watch mode works
 
-1. **Tracking**: Only monitors files explicitly marked by the user (not all git-ignored files)
-2. **Persistence**: Tracked files stored in `.dbx-ignore/tracked_files.json`
-3. **Daemon**: Runs as background process, PID stored in `.dbx-ignore/daemon_status.json`
-4. **Monitoring**: Watches for filesystem changes to tracked files
-5. **Re-marking**: Automatically re-applies markers if files are modified
+Watch mode operates in three distinct modes based on what's being tracked:
 
-### Watch mode workflow
+#### Mode 1: Pattern-based monitoring (patterns tracked)
+
+When patterns are provided (e.g., `*.log`, `build/**`), watch mode monitors for files matching those patterns:
+
+1. **Pattern matching**: Continuously scans for files matching tracked patterns
+2. **Automatic marking**: New files matching patterns are immediately marked
+3. **Dynamic updates**: Files renamed to match patterns get marked, renamed away get unmarked
+4. **Flexible patterns**: Supports standard glob patterns including `*`, `**`, `?`, `[...]`
+
+#### Mode 2: GitIgnore monitoring (no patterns/files tracked)
+
+When nothing is tracked, watch mode monitors your `.gitignore` files:
+
+1. **Automatic marking**: Monitors all `.gitignore` files in the repository
+2. **Real-time updates**: When `.gitignore` changes, automatically marks/unmarks affected files
+3. **Comprehensive coverage**: Processes all git-ignored files in the repository
+4. **Dynamic behavior**: Adding patterns marks new files, removing patterns unmarks them
+
+#### Mode 3: File-based monitoring (specific files tracked)
+
+When specific files/directories are marked (without patterns), watch mode monitors only those:
+
+1. **Tracking**: Only monitors files explicitly marked by the user
+2. **Persistence**: Tracked files stored in `.dbx-ignore/tracked_files.json`
+3. **Re-marking**: Automatically re-applies markers if files are modified
+4. **Selective updates**: Updates markers based on git ignore status changes
+
+### Watch mode workflows
+
+#### Workflow 1: Pattern-based monitoring
 
 ```bash
-# Step 1: Mark files you want to keep ignored
-dbx-ignore target/ node_modules/ "*.log"
+# Option A: Combined mark & watch (recommended)
+dbx-ignore --watch "*.log" "*.tmp" "build/**"
+# Output: Marking files before starting watch mode...
+# ✓ 5 files processed, 10 ignore markers added
+# ✓ Started daemon watcher (PID: 12345)
+
+# Option B: Separate mark then watch
+dbx-ignore "*.log" "*.tmp" "build/**"      # First mark files
+dbx-ignore --watch                          # Then start watching
+# Output: Starting file watcher daemon...
+# Mode: Monitoring for files matching patterns:
+#   - *.log
+#   - *.tmp
+#   - build/**
+
+# Both options result in automatic marking of new files:
+echo "test" > debug.log     # Automatically marked
+echo "data" > temp.tmp      # Automatically marked
+mkdir build && echo "x" > build/output.js  # Automatically marked
+```
+
+#### Workflow 2: Automatic .gitignore monitoring
+
+```bash
+# In a git repository with .gitignore (no files/patterns tracked)
+dbx-ignore --watch
+# Output: Starting file watcher daemon...
+# Mode: Monitoring .gitignore changes to automatically mark/unmark files
+
+# Daemon watches .gitignore and marks/unmarks files automatically
+```
+
+#### Workflow 3: Specific file monitoring
+
+```bash
+# Step 1: Mark specific files/directories (no patterns)
+dbx-ignore target/ node_modules/
 
 # Step 2: Start the watch daemon
 dbx-ignore --watch
-# Output: Started daemon watcher (PID: 12345)
+# Output: Starting file watcher daemon...
+# Mode: Monitoring 2 tracked files for changes
 
-# Step 3: Daemon now monitors those specific files
+# Step 3: Daemon monitors only those specific files
 # If target/ is modified, daemon will ensure it stays marked
 
 # Step 4: Check status anytime
@@ -574,10 +647,14 @@ dbx-ignore --unwatch
 
 ### Important notes
 
-- Watch mode does NOT automatically mark all git-ignored files
-- Only watches files you explicitly marked with dbx-ignore
+- Watch mode behavior depends on what's tracked:
+  - Patterns tracked → monitors for files matching patterns
+  - Nothing tracked → monitors .gitignore changes
+  - Specific files tracked → monitors only those files
+- Pattern mode is most powerful for dynamic environments
 - Daemon survives terminal closure (background process)
 - One daemon per repository (multiple watchers not supported)
+- Patterns use standard glob syntax (`*`, `**`, `?`, `[...]`)
 
 ## Safety features and validation
 

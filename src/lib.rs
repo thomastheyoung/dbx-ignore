@@ -52,13 +52,14 @@ impl std::str::FromStr for Action {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Config {
     pub action: Action,
     pub dry_run: bool,
     pub verbose: bool,
     pub quiet: bool,
     pub files: Vec<PathBuf>,
+    pub patterns: Vec<String>,  // Original patterns provided by user
     pub git_mode: bool,
     pub daemon_mode: bool,
 }
@@ -84,6 +85,24 @@ pub fn run(config: Config) -> Result<()> {
                 println!("{} A daemon is already watching this repository (PID: {})", 
                     "⚠".yellow(), status.pid);
                 return Ok(());
+            }
+            
+            // If files/patterns provided with --watch, process them first
+            if !config.files.is_empty() && !config.daemon_mode {
+                if !config.quiet {
+                    println!("{} Marking files before starting watch mode...", "🔍".yellow());
+                }
+                
+                // Create a temporary config for marking files
+                let mut mark_config = config.clone();
+                mark_config.action = Action::Ignore;
+                
+                // Process the files/patterns
+                process_files_and_patterns(&mark_config)?;
+                
+                if !config.quiet {
+                    println!();
+                }
             }
             
             // Check if we're being run as a daemon
@@ -129,6 +148,10 @@ pub fn run(config: Config) -> Result<()> {
         _ => {} // Continue with normal processing
     }
 
+    process_files_and_patterns(&config)
+}
+
+fn process_files_and_patterns(config: &Config) -> Result<()> {
     let files_to_process = if config.git_mode && config.files.is_empty() {
         utils::git_utils::get_git_ignored_files()?
     } else {
@@ -247,9 +270,17 @@ pub fn run(config: Config) -> Result<()> {
     let final_processed = processed_count.load(Ordering::Relaxed);
     let final_operations = operation_count.load(Ordering::Relaxed);
 
-    // Save tracked files state
+    // Save tracked files state and patterns
     if !config.dry_run && (config.action == Action::Ignore || config.action == Action::Reset) {
-        let tracked = tracked_mutex.lock().unwrap();
+        let mut tracked = tracked_mutex.lock().unwrap();
+        
+        // Store patterns if we're ignoring files
+        if config.action == Action::Ignore && !config.patterns.is_empty() {
+            tracked.add_patterns(&config.patterns);
+        } else if config.action == Action::Reset && !config.patterns.is_empty() {
+            tracked.remove_patterns(&config.patterns);
+        }
+        
         tracked.save(&current_dir)?;
     }
 
@@ -279,7 +310,36 @@ fn get_files_from_paths(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
     let mut items = Vec::new();
     
     for path in paths {
-        if path.exists() {
+        let path_str = path.to_string_lossy();
+        
+        // Check if this is a glob pattern
+        if path_str.contains('*') || path_str.contains('?') || path_str.contains('[') {
+            // Use glob to expand the pattern
+            match glob::glob(&path_str) {
+                Ok(paths) => {
+                    let mut found_any = false;
+                    for entry in paths {
+                        match entry {
+                            Ok(p) => {
+                                if p.exists() {
+                                    items.push(p);
+                                    found_any = true;
+                                }
+                            }
+                            Err(e) => {
+                                return Err(anyhow::anyhow!("Glob error: {}", e));
+                            }
+                        }
+                    }
+                    if !found_any {
+                        return Err(anyhow::anyhow!("No files found matching pattern: {}", path_str));
+                    }
+                }
+                Err(e) => {
+                    return Err(anyhow::anyhow!("Invalid glob pattern '{}': {}", path_str, e));
+                }
+            }
+        } else if path.exists() {
             // Special case: if path is '.' (current directory), expand to contents
             if path.to_str() == Some(".") || path.file_name().and_then(|n| n.to_str()) == Some(".") {
                 // Get all files and directories in current directory

@@ -25,18 +25,19 @@ fn test_git_mode_in_valid_repository() {
         verbose: false,
         quiet: true,
         files: vec![],
+        patterns: vec![],
         git_mode: true,
         daemon_mode: false,
     };
 
     // Change to temp directory for the test
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(env.path()).unwrap();
+    
+    std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    std::env::set_current_dir(original_dir).unwrap();
+    
 
     assert!(result.is_ok());
 }
@@ -54,18 +55,19 @@ fn test_git_mode_outside_repository() {
         verbose: false,
         quiet: true,
         files: vec![],
+        patterns: vec![],
         git_mode: true,
         daemon_mode: false,
     };
 
     // Change to temp directory for the test
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(env.path()).unwrap();
+    
+    std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    std::env::set_current_dir(original_dir).unwrap();
+    
 
     // Should fail when not in a git repository
     assert!(result.is_err());
@@ -90,18 +92,19 @@ fn test_git_mode_with_empty_gitignore() {
         verbose: false,
         quiet: true,
         files: vec![],
+        patterns: vec![],
         git_mode: true,
         daemon_mode: false,
     };
 
     // Change to temp directory for the test
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(env.path()).unwrap();
+    
+    std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    std::env::set_current_dir(original_dir).unwrap();
+    
 
     // Should succeed even with empty .gitignore
     assert!(result.is_ok());
@@ -123,18 +126,19 @@ fn test_git_mode_with_no_gitignore() {
         verbose: false,
         quiet: true,
         files: vec![],
+        patterns: vec![],
         git_mode: true,
         daemon_mode: false,
     };
 
     // Change to temp directory for the test
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(env.path()).unwrap();
+    
+    std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    std::env::set_current_dir(original_dir).unwrap();
+    
 
     // Should succeed even without .gitignore
     assert!(result.is_ok());
@@ -172,18 +176,19 @@ fn test_git_mode_with_complex_gitignore() {
         verbose: false,
         quiet: true,
         files: vec![],
+        patterns: vec![],
         git_mode: true,
         daemon_mode: false,
     };
 
     // Change to temp directory for the test
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(env.path()).unwrap();
+    
+    std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    std::env::set_current_dir(original_dir).unwrap();
+    
 
     assert!(result.is_ok());
 }
@@ -211,18 +216,19 @@ fn test_git_mode_with_negated_patterns() {
         verbose: false,
         quiet: true,
         files: vec![],
+        patterns: vec![],
         git_mode: true,
         daemon_mode: false,
     };
 
     // Change to temp directory for the test
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(env.path()).unwrap();
+    
+    std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    std::env::set_current_dir(original_dir).unwrap();
+    
 
     // Should succeed - negated patterns are skipped
     assert!(result.is_ok());
@@ -245,6 +251,7 @@ fn test_mixed_mode_vs_git_mode() {
         verbose: false,
         quiet: true,
         files: vec![test_file.clone()],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
@@ -256,19 +263,20 @@ fn test_mixed_mode_vs_git_mode() {
         verbose: false,
         quiet: true,
         files: vec![],
+        patterns: vec![],
         git_mode: true,
         daemon_mode: false,
     };
 
     // Change to temp directory for the tests
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(env.path()).unwrap();
+    
+    std::env::set_current_dir(&env.temp_path).unwrap();
 
     let file_result = run(file_config);
     let git_result = run(git_config);
 
     // Restore original directory
-    std::env::set_current_dir(original_dir).unwrap();
+    
 
     // Both should succeed
     assert!(file_result.is_ok());
@@ -294,18 +302,19 @@ fn test_git_repository_discovery() {
         verbose: false,
         quiet: true,
         files: vec![],
+        patterns: vec![],
         git_mode: true,
         daemon_mode: false,
     };
 
     // Change to subdirectory and test git discovery
-    let original_dir = std::env::current_dir().unwrap();
+    
     std::env::set_current_dir(&subdir).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    std::env::set_current_dir(original_dir).unwrap();
+    
 
     // Should succeed - git repository should be discovered from parent
     assert!(result.is_ok());

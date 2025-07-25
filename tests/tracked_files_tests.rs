@@ -49,6 +49,58 @@ fn test_tracked_files_add_remove() {
 }
 
 #[test]
+fn test_tracked_files_patterns() {
+    let temp_dir = TempDir::new().unwrap();
+    let test_path = temp_dir.path();
+    
+    // Create tracked files with patterns
+    let mut tracked = TrackedFiles::default();
+    tracked.add_patterns(&[
+        "*.log".to_string(),
+        "build/**".to_string(),
+        "*.tmp".to_string(),
+    ]);
+    
+    // Verify patterns are stored
+    assert_eq!(tracked.patterns.len(), 3);
+    assert!(tracked.patterns.contains(&"*.log".to_string()));
+    
+    // Save and reload
+    tracked.save(test_path).unwrap();
+    let loaded = TrackedFiles::load(test_path).unwrap();
+    
+    // Verify patterns persist
+    assert_eq!(loaded.patterns.len(), 3);
+    assert!(loaded.patterns.contains(&"*.log".to_string()));
+    assert!(loaded.patterns.contains(&"build/**".to_string()));
+    assert!(loaded.patterns.contains(&"*.tmp".to_string()));
+}
+
+#[test]
+fn test_tracked_files_remove_patterns() {
+    let mut tracked = TrackedFiles::default();
+    
+    // Add patterns
+    tracked.add_patterns(&[
+        "*.log".to_string(),
+        "*.tmp".to_string(),
+        "*.cache".to_string(),
+    ]);
+    assert_eq!(tracked.patterns.len(), 3);
+    
+    // Remove some patterns
+    tracked.remove_patterns(&[
+        "*.tmp".to_string(),
+        "*.cache".to_string(),
+    ]);
+    
+    // Verify only *.log remains
+    assert_eq!(tracked.patterns.len(), 1);
+    assert!(tracked.patterns.contains(&"*.log".to_string()));
+    assert!(!tracked.patterns.contains(&"*.tmp".to_string()));
+}
+
+#[test]
 fn test_tracked_files_empty_load() {
     let temp_dir = TempDir::new().unwrap();
     

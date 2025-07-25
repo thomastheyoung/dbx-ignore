@@ -50,4 +50,5 @@ test*.md
 CLAUDE.md
 
 .temp/
+.dbx-ignore/
 dbx-ignore-backup/

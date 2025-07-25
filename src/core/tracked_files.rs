@@ -9,6 +9,9 @@ use std::fs;
 pub struct TrackedFiles {
     /// Set of file paths that have been marked by the user
     pub marked_files: HashSet<PathBuf>,
+    /// Patterns used to mark files (e.g., "*.log", "build/", "**/*.tmp")
+    #[serde(default)]
+    pub patterns: Vec<String>,
     /// Timestamp of last update
     pub last_updated: chrono::DateTime<chrono::Utc>,
 }
@@ -56,11 +59,27 @@ impl TrackedFiles {
         self.last_updated = chrono::Utc::now();
     }
     
+    /// Add patterns to track
+    pub fn add_patterns(&mut self, patterns: &[String]) {
+        for pattern in patterns {
+            if !self.patterns.contains(pattern) {
+                self.patterns.push(pattern.clone());
+            }
+        }
+        self.last_updated = chrono::Utc::now();
+    }
+    
     /// Remove files from the tracked set
     pub fn remove_files(&mut self, files: &[PathBuf]) {
         for file in files {
             self.marked_files.remove(file);
         }
+        self.last_updated = chrono::Utc::now();
+    }
+    
+    /// Remove patterns from tracking
+    pub fn remove_patterns(&mut self, patterns: &[String]) {
+        self.patterns.retain(|p| !patterns.contains(p));
         self.last_updated = chrono::Utc::now();
     }
     

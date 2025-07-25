@@ -12,6 +12,7 @@ fn test_config_creation() {
         verbose: false,
         quiet: false,
         files: vec![PathBuf::from("test.txt")],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
@@ -32,6 +33,7 @@ fn test_run_with_empty_file_list() {
         verbose: false,
         quiet: true, // Suppress output for tests
         files: vec![],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
@@ -49,6 +51,7 @@ fn test_run_with_nonexistent_file() {
         verbose: false,
         quiet: true,
         files: vec![PathBuf::from("/tmp/definitely_nonexistent_file_12345")],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
@@ -70,11 +73,13 @@ fn test_run_with_existing_files() {
         verbose: false,
         quiet: true,
         files: vec![test_file1, test_file2],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
 
     // Should succeed with existing files
+    std::env::set_current_dir(&env.temp_path).unwrap();
     let result = run(config);
     assert!(result.is_ok());
 }
@@ -90,11 +95,13 @@ fn test_run_with_directory() {
         verbose: false,
         quiet: true,
         files: vec![test_dir],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
 
     // Should succeed with directories
+    std::env::set_current_dir(&env.temp_path).unwrap();
     let result = run(config);
     assert!(result.is_ok());
 }
@@ -111,11 +118,13 @@ fn test_run_with_mixed_files_and_directories() {
         verbose: false,
         quiet: true,
         files: vec![test_file, test_dir],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
 
     // Should succeed with mixed files and directories
+    std::env::set_current_dir(&env.temp_path).unwrap();
     let result = run(config);
     assert!(result.is_ok());
 }
@@ -132,10 +141,12 @@ fn test_dry_run_vs_actual_run() {
         verbose: false,
         quiet: true,
         files: vec![test_file.clone()],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
 
+    std::env::set_current_dir(&env.temp_path).unwrap();
     let result = run(dry_config);
     assert!(result.is_ok());
 
@@ -146,6 +157,7 @@ fn test_dry_run_vs_actual_run() {
         verbose: false,
         quiet: true,
         files: vec![test_file],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
@@ -165,11 +177,13 @@ fn test_verbose_mode() {
         verbose: true,
         quiet: false, // verbose overrides quiet behavior
         files: vec![test_file],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
 
     // Should succeed in verbose mode
+    std::env::set_current_dir(&env.temp_path).unwrap();
     let result = run(config);
     assert!(result.is_ok());
 }
@@ -185,11 +199,13 @@ fn test_quiet_mode() {
         verbose: false,
         quiet: true,
         files: vec![test_file],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
 
     // Should succeed in quiet mode
+    std::env::set_current_dir(&env.temp_path).unwrap();
     let result = run(config);
     assert!(result.is_ok());
 }
@@ -212,10 +228,12 @@ fn test_run_on_supported_platform() {
         verbose: false,
         quiet: true,
         files: vec![test_file],
+        patterns: vec![],
         git_mode: false,
         daemon_mode: false,
     };
 
+    std::env::set_current_dir(&env.temp_path).unwrap();
     let result = run(config);
     assert!(result.is_ok());
 }

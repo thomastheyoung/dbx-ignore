@@ -35,7 +35,7 @@ fn test_watch_daemon_startup() {
 }
 
 #[test]
-fn test_watch_requires_tracked_files() {
+fn test_watch_gitignore_mode() {
     let temp_dir = TempDir::new().unwrap();
     
     // Initialize git repo and create files
@@ -65,7 +65,8 @@ fn test_watch_requires_tracked_files() {
     let output = child.wait_with_output().unwrap();
     
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("No files are being tracked"));
+    // When no files are tracked, it should enter GitIgnore mode
+    assert!(stdout.contains("Mode: Monitoring .gitignore changes"));
 }
 
 #[test]
@@ -85,6 +86,9 @@ fn test_unwatch_daemon() {
         .arg("--watch")
         .output()
         .expect("Failed to start daemon");
+    
+    // Give daemon time to fully start
+    thread::sleep(Duration::from_millis(500));
     
     // Stop daemon
     let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
@@ -126,7 +130,7 @@ fn test_watch_prevents_duplicate_daemons() {
     // Should succeed but warn about existing daemon
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("daemon is already watching"));
+    assert!(stdout.contains("A daemon is already watching"));
     
     // Clean up
     let _ = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
@@ -149,4 +153,82 @@ fn test_unwatch_without_daemon() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("No active daemon found"));
+}
+
+#[test]
+fn test_watch_with_patterns() {
+    let temp_dir = TempDir::new().unwrap();
+    
+    // Initialize git repo
+    Command::new("git")
+        .current_dir(temp_dir.path())
+        .args(&["init"])
+        .output()
+        .expect("Failed to init git");
+    
+    // Create test files
+    std::fs::write(temp_dir.path().join("test1.log"), "content").unwrap();
+    std::fs::write(temp_dir.path().join("test2.log"), "content").unwrap();
+    std::fs::write(temp_dir.path().join("keep.txt"), "content").unwrap();
+    
+    // Start watch with patterns
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .current_dir(temp_dir.path())
+        .args(&["--watch", "*.log"])
+        .output()
+        .expect("Failed to execute command");
+    
+    // Should succeed and show marking message
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Marking files before starting watch mode"));
+    assert!(stdout.contains("2 files processed"));
+    assert!(stdout.contains("Started daemon watcher"));
+    
+    // Verify tracked files exist
+    let tracked_file = temp_dir.path().join(".dbx-ignore/tracked_files.json");
+    assert!(tracked_file.exists());
+    
+    // Clean up
+    let _ = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .current_dir(temp_dir.path())
+        .arg("--unwatch")
+        .output();
+}
+
+#[test]
+fn test_watch_with_multiple_patterns() {
+    let temp_dir = TempDir::new().unwrap();
+    
+    // Initialize git repo
+    Command::new("git")
+        .current_dir(temp_dir.path())
+        .args(&["init"])
+        .output()
+        .expect("Failed to init git");
+    
+    // Create test files
+    std::fs::write(temp_dir.path().join("test.log"), "content").unwrap();
+    std::fs::write(temp_dir.path().join("test.tmp"), "content").unwrap();
+    std::fs::write(temp_dir.path().join("test.cache"), "content").unwrap();
+    std::fs::write(temp_dir.path().join("keep.txt"), "content").unwrap();
+    
+    // Start watch with multiple patterns
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .current_dir(temp_dir.path())
+        .args(&["--watch", "*.log", "*.tmp", "*.cache"])
+        .output()
+        .expect("Failed to execute command");
+    
+    // Should succeed and process 3 files
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("3 files processed"));
+    assert!(stdout.contains("Started daemon watcher"));
+    
+    // Clean up
+    let _ = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .current_dir(temp_dir.path())
+        .arg("--unwatch")
+        .output();
 }

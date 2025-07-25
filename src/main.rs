@@ -20,7 +20,7 @@ fn main() -> Result<()> {
             Arg::new("watch")
                 .long("watch")
                 .short('w')
-                .help("Start daemon to monitor .gitignore changes")
+                .help("Start daemon to monitor files/patterns. Can accept patterns directly: --watch \"*.log\"")
                 .action(clap::ArgAction::SetTrue),
         )
         .arg(
@@ -113,10 +113,20 @@ fn main() -> Result<()> {
         Action::Ignore
     };
 
-    let files: Vec<PathBuf> = matches
+    let file_args: Vec<String> = matches
         .get_many::<String>("files")
         .unwrap_or_default()
+        .cloned()
+        .collect();
+    
+    let files: Vec<PathBuf> = file_args.iter()
         .map(PathBuf::from)
+        .collect();
+    
+    // Detect which arguments are patterns (contain wildcards)
+    let patterns: Vec<String> = file_args.iter()
+        .filter(|arg| arg.contains('*') || arg.contains('?') || arg.contains('['))
+        .cloned()
         .collect();
     
     // Validate dangerous operations
@@ -156,6 +166,7 @@ fn main() -> Result<()> {
         verbose: matches.get_flag("verbose"),
         quiet: matches.get_flag("quiet"),
         files,
+        patterns,
         git_mode: matches.get_flag("git") || matches.get_many::<String>("files").is_none(),
         daemon_mode: matches.get_flag("daemon-mode"),
     };
