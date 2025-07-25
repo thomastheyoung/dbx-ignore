@@ -1,0 +1,53 @@
+# Rust
+/target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build artifacts
+*.exe
+*.pdb
+*.dll
+*.so
+*.dylib
+bin/
+
+# Testing
+*.gcda
+*.gcno
+*.profraw
+
+# Documentation
+/doc/
+
+# Backup files
+*.bak
+*.tmp
+*.orig
+
+# Test files (our custom addition)
+test_files/
+test*.txt
+test*.md
+*_test_*
+
+# Claude Code settings
+.claude/
+CLAUDE.md
+
+.temp/
+dbx-ignore-backup/

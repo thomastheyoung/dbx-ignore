@@ -1,0 +1,33 @@
+[package]
+name = "dbx-ignore"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool to prevent Dropbox from syncing files by adding ignore markers"
+authors = ["Claude Code"]
+license = "MIT"
+repository = "https://github.com/user/dbx-ignore"
+homepage = "https://github.com/user/dbx-ignore"
+readme = "README.md"
+keywords = ["xattr", "dropbox", "macos", "cli", "cross-platform"]
+categories = ["command-line-utilities", "filesystem"]
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+anyhow = "1.0"
+colored = "2.0"
+indicatif = "0.17"
+git2 = { version = "0.18", default-features = false }
+rayon = "1.8"
+notify = "6.1"
+tokio = { version = "1.35", features = ["full"] }
+ctrlc = "3.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Platform-specific dependencies
+[target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
+xattr = "1.0"
+
+[dev-dependencies]
+tempfile = "3.8"
