@@ -254,6 +254,47 @@ dbx-ignore "data[0-9][0-9].csv"     # data00.csv through data99.csv
 dbx-ignore .                         # All non-hidden files in current dir
 ```
 
+##### When to use quotes with patterns
+
+Quotes around patterns are **optional** in most cases, but understanding when they're needed helps avoid surprises:
+
+**Without quotes (shell expansion):**
+```bash
+# When matching files exist, these work identically:
+dbx-ignore *.log                    # Shell expands to: dbx-ignore file1.log file2.log ...
+dbx-ignore *.tmp *.cache            # Shell expands each pattern separately
+
+# Advantages:
+# - Natural shell behavior
+# - Tab completion works
+# - No quotes needed for simple patterns
+```
+
+**With quotes (pattern preservation):**
+```bash
+# Quotes are REQUIRED when:
+dbx-ignore "*.log"                  # 1. No files match yet (shell can't expand)
+dbx-ignore --watch "*.tmp"          # 2. Watch mode with patterns (need pattern for future files)
+dbx-ignore "my files/*.txt"         # 3. Pattern contains spaces
+dbx-ignore "file-{prod,dev}.conf"   # 4. Using shell special characters you want to preserve
+```
+
+**Key differences for watch mode:**
+```bash
+# Different behaviors:
+dbx-ignore --watch "*.log"          # Watches for ANY future *.log files
+dbx-ignore --watch *.log            # Only watches existing .log files (after shell expansion)
+
+# Example scenario:
+touch app.log                       # Create a file
+dbx-ignore --watch *.log            # Watches only app.log
+touch new.log                       # This new file WON'T be watched
+
+# Versus:
+dbx-ignore --watch "*.log"          # Watches for ANY *.log files
+touch new.log                       # This new file WILL be watched
+```
+
 #### Preview and dry run
 
 ```bash
@@ -611,6 +652,10 @@ echo "test" > debug.log     # Automatically marked
 echo "data" > temp.tmp      # Automatically marked
 mkdir build && echo "x" > build/output.js  # Automatically marked
 ```
+
+**Important:** Use quotes for patterns in watch mode to monitor future files:
+- `dbx-ignore --watch "*.log"` → Watches for ANY future *.log files ✓
+- `dbx-ignore --watch *.log` → Only watches existing .log files (shell expansion) ⚠️
 
 #### Workflow 2: Automatic .gitignore monitoring
 
