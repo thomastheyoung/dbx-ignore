@@ -6,11 +6,11 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use tokio::time;
 
-use crate::utils::{git_utils, platform_utils};
 use crate::core::tracked_files;
+use crate::utils::{git_utils, platform_utils};
 
 // Constants for output limiting
 const MAX_FILES_TO_DISPLAY: usize = 10;
@@ -38,13 +38,11 @@ impl WatchConfig {
     }
 }
 
-pub async fn watch_repository(
-    config: WatchConfig,
-) -> Result<()> {
-    let repo = Repository::open(&config.repo_path)
-        .context("Failed to open git repository")?;
-    
-    let repo_root = repo.workdir()
+pub async fn watch_repository(config: WatchConfig) -> Result<()> {
+    let repo = Repository::open(&config.repo_path).context("Failed to open git repository")?;
+
+    let repo_root = repo
+        .workdir()
         .ok_or_else(|| anyhow::anyhow!("Repository has no working directory"))?
         .to_path_buf();
 
@@ -62,7 +60,10 @@ pub async fn watch_repository(
     println!("Watching repository at: {}", repo_root.display());
     match &watch_mode {
         WatchMode::TrackedFiles => {
-            println!("Mode: Monitoring {} tracked files for changes", tracked.marked_files.len());
+            println!(
+                "Mode: Monitoring {} tracked files for changes",
+                tracked.marked_files.len()
+            );
         }
         WatchMode::GitIgnore => {
             println!("Mode: Monitoring .gitignore changes to automatically mark/unmark files");
@@ -81,10 +82,10 @@ pub async fn watch_repository(
 
     // Set up channels for file system events
     let (tx, mut rx) = mpsc::unbounded_channel();
-    
+
     // Track pending events for debouncing
     let pending_events = Arc::new(Mutex::new(HashSet::new()));
-    
+
     // Create file watcher
     let mut watcher = RecommendedWatcher::new(
         move |result: Result<Event, notify::Error>| {
@@ -107,7 +108,7 @@ pub async fn watch_repository(
     // Set up Ctrl+C handler
     let shutdown = Arc::new(Mutex::new(false));
     let shutdown_clone = shutdown.clone();
-    
+
     ctrlc::set_handler(move || {
         let shutdown_clone = shutdown_clone.clone();
         tokio::spawn(async move {
@@ -117,7 +118,7 @@ pub async fn watch_repository(
 
     // Event processing loop
     let mut debounce_timer = time::interval(config.debounce_duration);
-    
+
     loop {
         tokio::select! {
             Some(event) = rx.recv() => {
@@ -163,7 +164,7 @@ fn should_trigger_rescan(event: &Event, watch_mode: &WatchMode) -> bool {
                             .and_then(|name| name.to_str())
                             .map(|name| name == ".gitignore")
                             .unwrap_or(false)
-                        || path.components().any(|c| c.as_os_str() == ".git")
+                            || path.components().any(|c| c.as_os_str() == ".git")
                     })
                 }
             }
@@ -183,20 +184,23 @@ fn perform_scan(repo_root: &Path, watch_mode: &WatchMode) -> Result<()> {
 fn perform_tracked_files_scan(repo_root: &Path) -> Result<()> {
     // Load tracked files
     let mut tracked = tracked_files::TrackedFiles::load(repo_root)?;
-    
+
     if tracked.marked_files.is_empty() {
-        println!("{}", "No files are being tracked. Use 'dbx-ignore <files>' to mark files first.".yellow());
+        println!(
+            "{}",
+            "No files are being tracked. Use 'dbx-ignore <files>' to mark files first.".yellow()
+        );
         return Ok(());
     }
-    
+
     // Get current git-ignored files
     let git_ignored = git_utils::get_git_ignored_files_in_path(repo_root)?;
     let git_ignored_set: HashSet<_> = git_ignored.into_iter().collect();
-    
+
     let mut updated = 0;
     let mut removed = 0;
     let mut errors = 0;
-    
+
     // Check each tracked file
     for tracked_file in tracked.marked_files.clone() {
         if !tracked_file.exists() {
@@ -205,40 +209,62 @@ fn perform_tracked_files_scan(repo_root: &Path) -> Result<()> {
             removed += 1;
             continue;
         }
-        
+
         let should_be_ignored = git_ignored_set.contains(&tracked_file);
         let has_marker = platform_utils::has_any_ignore_attribute(&tracked_file);
-        
+
         if should_be_ignored && !has_marker {
             // File should be ignored but isn't - add marker
             match platform_utils::add_ignore_attributes(&tracked_file, false) {
-                Ok(count) => if count > 0 {
-                    updated += 1;
-                    println!("  {} Added ignore marker to: {}", "✓".green(), tracked_file.display());
-                },
+                Ok(count) => {
+                    if count > 0 {
+                        updated += 1;
+                        println!(
+                            "  {} Added ignore marker to: {}",
+                            "✓".green(),
+                            tracked_file.display()
+                        );
+                    }
+                }
                 Err(e) => {
                     errors += 1;
-                    eprintln!("  {} Failed to add marker to {}: {}", "✗".red(), tracked_file.display(), e);
+                    eprintln!(
+                        "  {} Failed to add marker to {}: {}",
+                        "✗".red(),
+                        tracked_file.display(),
+                        e
+                    );
                 }
             }
         } else if !should_be_ignored && has_marker {
             // File should not be ignored but has marker - remove it
             match platform_utils::remove_ignore_attributes(&tracked_file) {
-                Ok(count) => if count > 0 {
-                    updated += 1;
-                    println!("  {} Removed ignore marker from: {}", "✓".green(), tracked_file.display());
-                },
+                Ok(count) => {
+                    if count > 0 {
+                        updated += 1;
+                        println!(
+                            "  {} Removed ignore marker from: {}",
+                            "✓".green(),
+                            tracked_file.display()
+                        );
+                    }
+                }
                 Err(e) => {
                     errors += 1;
-                    eprintln!("  {} Failed to remove marker from {}: {}", "✗".red(), tracked_file.display(), e);
+                    eprintln!(
+                        "  {} Failed to remove marker from {}: {}",
+                        "✗".red(),
+                        tracked_file.display(),
+                        e
+                    );
                 }
             }
         }
     }
-    
+
     // Save updated tracked files
     tracked.save(repo_root)?;
-    
+
     if updated > 0 || removed > 0 || errors > 0 {
         println!(
             "{} {} files updated, {} removed from tracking, {} errors",
@@ -257,58 +283,82 @@ fn perform_tracked_files_scan(repo_root: &Path) -> Result<()> {
 fn perform_gitignore_scan(repo_root: &Path) -> Result<()> {
     // Get all git-ignored files
     let git_ignored = git_utils::get_git_ignored_files_in_path(repo_root)?;
-    
+
     let mut added = 0;
     let mut removed = 0;
     let mut errors = 0;
-    
+
     // Process all git-ignored files
     for file_path in &git_ignored {
         if !platform_utils::has_any_ignore_attribute(file_path) {
             // File should be ignored but isn't - add marker
             match platform_utils::add_ignore_attributes(file_path, false) {
-                Ok(count) => if count > 0 {
-                    added += 1;
-                    if added <= MAX_FILES_TO_DISPLAY {
-                        println!("  {} Added ignore marker to: {}", "✓".green(), file_path.display());
+                Ok(count) => {
+                    if count > 0 {
+                        added += 1;
+                        if added <= MAX_FILES_TO_DISPLAY {
+                            println!(
+                                "  {} Added ignore marker to: {}",
+                                "✓".green(),
+                                file_path.display()
+                            );
+                        }
                     }
-                },
+                }
                 Err(e) => {
                     errors += 1;
                     if errors <= MAX_ERRORS_TO_DISPLAY {
-                        eprintln!("  {} Failed to add marker to {}: {}", "✗".red(), file_path.display(), e);
+                        eprintln!(
+                            "  {} Failed to add marker to {}: {}",
+                            "✗".red(),
+                            file_path.display(),
+                            e
+                        );
                     }
                 }
             }
         }
     }
-    
+
     // Check for files that have markers but are no longer git-ignored
     let git_ignored_set: HashSet<_> = git_ignored.into_iter().collect();
-    
+
     // Get all files with markers in the repository
     let marked_files = find_marked_files(repo_root)?;
-    
+
     for marked_file in marked_files {
-        if !git_ignored_set.contains(&marked_file) && platform_utils::has_any_ignore_attribute(&marked_file) {
+        if !git_ignored_set.contains(&marked_file)
+            && platform_utils::has_any_ignore_attribute(&marked_file)
+        {
             // File has marker but is no longer git-ignored - remove it
             match platform_utils::remove_ignore_attributes(&marked_file) {
-                Ok(count) => if count > 0 {
-                    removed += 1;
-                    if removed <= MAX_FILES_TO_DISPLAY {
-                        println!("  {} Removed ignore marker from: {}", "✓".green(), marked_file.display());
+                Ok(count) => {
+                    if count > 0 {
+                        removed += 1;
+                        if removed <= MAX_FILES_TO_DISPLAY {
+                            println!(
+                                "  {} Removed ignore marker from: {}",
+                                "✓".green(),
+                                marked_file.display()
+                            );
+                        }
                     }
-                },
+                }
                 Err(e) => {
                     errors += 1;
                     if errors <= MAX_ERRORS_TO_DISPLAY {
-                        eprintln!("  {} Failed to remove marker from {}: {}", "✗".red(), marked_file.display(), e);
+                        eprintln!(
+                            "  {} Failed to remove marker from {}: {}",
+                            "✗".red(),
+                            marked_file.display(),
+                            e
+                        );
                     }
                 }
             }
         }
     }
-    
+
     if added > MAX_FILES_TO_DISPLAY {
         println!("  ... and {} more files", added - MAX_FILES_TO_DISPLAY);
     }
@@ -318,7 +368,7 @@ fn perform_gitignore_scan(repo_root: &Path) -> Result<()> {
     if errors > MAX_ERRORS_TO_DISPLAY {
         eprintln!("  ... and {} more errors", errors - MAX_ERRORS_TO_DISPLAY);
     }
-    
+
     if added > 0 || removed > 0 || errors > 0 {
         println!(
             "{} {} markers added, {} removed, {} errors",
@@ -336,9 +386,9 @@ fn perform_gitignore_scan(repo_root: &Path) -> Result<()> {
 
 fn find_marked_files(repo_root: &Path) -> Result<Vec<PathBuf>> {
     use ignore::WalkBuilder;
-    
+
     let mut marked_files = Vec::new();
-    
+
     let walker = WalkBuilder::new(repo_root)
         .standard_filters(false)
         .hidden(false)
@@ -347,20 +397,21 @@ fn find_marked_files(repo_root: &Path) -> Result<Vec<PathBuf>> {
         .git_exclude(false)
         .filter_entry(|entry| {
             // Skip .git directory
-            entry.file_name()
+            entry
+                .file_name()
                 .to_str()
                 .map(|name| name != ".git")
                 .unwrap_or(true)
         })
         .build();
-    
+
     for entry in walker.flatten() {
         let path = entry.path();
         if platform_utils::has_any_ignore_attribute(path) {
             marked_files.push(path.to_path_buf());
         }
     }
-    
+
     Ok(marked_files)
 }
 
@@ -368,64 +419,94 @@ fn perform_pattern_scan(repo_root: &Path, patterns: &[String]) -> Result<()> {
     let mut added = 0;
     let mut removed = 0;
     let mut errors = 0;
-    
+
     // Use our consistent pattern matcher
-    let files_to_mark = match crate::utils::git_utils::find_files_matching_patterns(repo_root, patterns) {
-        Ok(files) => files.into_iter().collect::<HashSet<_>>(),
-        Err(e) => {
-            eprintln!("  {} Failed to find files matching patterns: {}", "✗".red(), e);
-            return Ok(());
-        }
-    };
-    
+    let files_to_mark =
+        match crate::utils::git_utils::find_files_matching_patterns(repo_root, patterns) {
+            Ok(files) => files.into_iter().collect::<HashSet<_>>(),
+            Err(e) => {
+                eprintln!(
+                    "  {} Failed to find files matching patterns: {}",
+                    "✗".red(),
+                    e
+                );
+                return Ok(());
+            }
+        };
+
     // Mark files that match patterns but aren't marked
     for file_path in &files_to_mark {
         if !platform_utils::has_any_ignore_attribute(file_path) {
             match platform_utils::add_ignore_attributes(file_path, false) {
-                Ok(count) => if count > 0 {
-                    added += 1;
-                    if added <= MAX_FILES_TO_DISPLAY {
-                        println!("  {} Added ignore marker to: {}", "✓".green(), file_path.display());
+                Ok(count) => {
+                    if count > 0 {
+                        added += 1;
+                        if added <= MAX_FILES_TO_DISPLAY {
+                            println!(
+                                "  {} Added ignore marker to: {}",
+                                "✓".green(),
+                                file_path.display()
+                            );
+                        }
                     }
-                },
+                }
                 Err(e) => {
                     errors += 1;
                     if errors <= MAX_ERRORS_TO_DISPLAY {
-                        eprintln!("  {} Failed to add marker to {}: {}", "✗".red(), file_path.display(), e);
+                        eprintln!(
+                            "  {} Failed to add marker to {}: {}",
+                            "✗".red(),
+                            file_path.display(),
+                            e
+                        );
                     }
                 }
             }
         }
     }
-    
+
     // Find all marked files and remove markers from those that don't match patterns
     let marked_files = find_marked_files(repo_root)?;
-    
+
     for marked_file in marked_files {
-        if !files_to_mark.contains(&marked_file) && platform_utils::has_any_ignore_attribute(&marked_file) {
+        if !files_to_mark.contains(&marked_file)
+            && platform_utils::has_any_ignore_attribute(&marked_file)
+        {
             // Check if file matches any pattern using the pattern matcher
-            let matches_pattern = crate::utils::pattern_matcher::matches_patterns(repo_root, &marked_file, patterns)
-                .unwrap_or(false);
-            
+            let matches_pattern =
+                crate::utils::pattern_matcher::matches_patterns(repo_root, &marked_file, patterns)
+                    .unwrap_or(false);
+
             if !matches_pattern {
                 match platform_utils::remove_ignore_attributes(&marked_file) {
-                    Ok(count) => if count > 0 {
-                        removed += 1;
-                        if removed <= MAX_FILES_TO_DISPLAY {
-                            println!("  {} Removed ignore marker from: {}", "✓".green(), marked_file.display());
+                    Ok(count) => {
+                        if count > 0 {
+                            removed += 1;
+                            if removed <= MAX_FILES_TO_DISPLAY {
+                                println!(
+                                    "  {} Removed ignore marker from: {}",
+                                    "✓".green(),
+                                    marked_file.display()
+                                );
+                            }
                         }
-                    },
+                    }
                     Err(e) => {
                         errors += 1;
                         if errors <= MAX_ERRORS_TO_DISPLAY {
-                            eprintln!("  {} Failed to remove marker from {}: {}", "✗".red(), marked_file.display(), e);
+                            eprintln!(
+                                "  {} Failed to remove marker from {}: {}",
+                                "✗".red(),
+                                marked_file.display(),
+                                e
+                            );
                         }
                     }
                 }
             }
         }
     }
-    
+
     if added > MAX_FILES_TO_DISPLAY {
         println!("  ... and {} more files", added - MAX_FILES_TO_DISPLAY);
     }
@@ -435,7 +516,7 @@ fn perform_pattern_scan(repo_root: &Path, patterns: &[String]) -> Result<()> {
     if errors > MAX_ERRORS_TO_DISPLAY {
         eprintln!("  ... and {} more errors", errors - MAX_ERRORS_TO_DISPLAY);
     }
-    
+
     if added > 0 || removed > 0 || errors > 0 {
         println!(
             "{} {} markers added, {} removed, {} errors",
@@ -445,7 +526,10 @@ fn perform_pattern_scan(repo_root: &Path, patterns: &[String]) -> Result<()> {
             errors
         );
     } else {
-        println!("{}", "All files matching patterns are properly marked.".green());
+        println!(
+            "{}",
+            "All files matching patterns are properly marked.".green()
+        );
     }
 
     Ok(())
@@ -453,9 +537,9 @@ fn perform_pattern_scan(repo_root: &Path, patterns: &[String]) -> Result<()> {
 
 fn find_gitignore_files(repo_root: &Path) -> Result<Vec<PathBuf>> {
     use ignore::WalkBuilder;
-    
+
     let mut gitignore_files = Vec::new();
-    
+
     let walker = WalkBuilder::new(repo_root)
         .standard_filters(false)
         .hidden(false)
@@ -464,16 +548,18 @@ fn find_gitignore_files(repo_root: &Path) -> Result<Vec<PathBuf>> {
         .git_exclude(false)
         .filter_entry(|entry| {
             // Skip .git directory
-            entry.file_name()
+            entry
+                .file_name()
                 .to_str()
                 .map(|name| name != ".git")
                 .unwrap_or(true)
         })
         .build();
-    
+
     for entry in walker.flatten() {
         let path = entry.path();
-        if path.file_name()
+        if path
+            .file_name()
             .and_then(|name| name.to_str())
             .map(|name| name == ".gitignore")
             .unwrap_or(false)
@@ -481,6 +567,6 @@ fn find_gitignore_files(repo_root: &Path) -> Result<Vec<PathBuf>> {
             gitignore_files.push(path.to_path_buf());
         }
     }
-    
+
     Ok(gitignore_files)
 }

@@ -1,9 +1,9 @@
+use crate::utils::json_utils;
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use serde::{Deserialize, Serialize};
-use crate::utils::json_utils;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DaemonStatus {
@@ -51,7 +51,7 @@ impl DaemonStatus {
 
     pub fn write(&self, repo_path: &Path) -> Result<()> {
         let status_file = Self::status_file_path(repo_path);
-        
+
         // Validate before writing
         if self.pid == 0 {
             return Err(anyhow::anyhow!("Invalid PID: 0"));
@@ -67,8 +67,7 @@ impl DaemonStatus {
     pub fn remove(repo_path: &Path) -> Result<()> {
         let status_file = Self::status_file_path(repo_path);
         if status_file.exists() {
-            fs::remove_file(&status_file)
-                .context("Failed to remove daemon status file")?;
+            fs::remove_file(&status_file).context("Failed to remove daemon status file")?;
         }
         Ok(())
     }
@@ -78,11 +77,7 @@ impl DaemonStatus {
 #[cfg(unix)]
 fn is_process_running(pid: u32) -> bool {
     // Send signal 0 to check if process exists
-    match Command::new("kill")
-        .arg("-0")
-        .arg(pid.to_string())
-        .status()
-    {
+    match Command::new("kill").arg("-0").arg(pid.to_string()).status() {
         Ok(status) => status.success(),
         Err(_) => false,
     }
@@ -91,7 +86,7 @@ fn is_process_running(pid: u32) -> bool {
 #[cfg(windows)]
 fn is_process_running(pid: u32) -> bool {
     use std::os::windows::process::CommandExt;
-    
+
     // Use tasklist to check if process exists
     match Command::new("tasklist")
         .args(&["/FI", &format!("PID eq {}", pid), "/NH"])
@@ -108,21 +103,20 @@ fn is_process_running(pid: u32) -> bool {
 
 /// Spawn a daemon process in the background
 pub fn spawn_daemon(repo_path: &Path) -> Result<u32> {
-    let exe_path = std::env::current_exe()
-        .context("Failed to get current executable path")?;
+    let exe_path = std::env::current_exe().context("Failed to get current executable path")?;
 
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
-        
+
         let child = Command::new(&exe_path)
             .arg("--watch")
-            .arg("--daemon-mode")  // Special flag to indicate we're running as daemon
+            .arg("--daemon-mode") // Special flag to indicate we're running as daemon
             .current_dir(repo_path)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .process_group(0)  // Create new process group
+            .process_group(0) // Create new process group
             .spawn()
             .context("Failed to spawn daemon process")?;
 
@@ -132,7 +126,7 @@ pub fn spawn_daemon(repo_path: &Path) -> Result<u32> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        
+
         let child = Command::new(&exe_path)
             .arg("--watch")
             .arg("--daemon-mode")

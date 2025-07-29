@@ -6,28 +6,24 @@ use std::path::Path;
 use tempfile::NamedTempFile;
 
 /// Atomically write JSON data to a file
-/// 
+///
 /// This function ensures that the file is either fully written or not written at all,
 /// preventing partial writes that could corrupt the JSON file.
 pub fn write_json_atomic<T: Serialize>(path: &Path, data: &T) -> Result<()> {
     // Ensure parent directory exists
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .context("Failed to create parent directory")?;
+        fs::create_dir_all(parent).context("Failed to create parent directory")?;
     }
 
     // Create a temporary file in the same directory
     let dir = path.parent().unwrap_or(Path::new("."));
-    let mut temp_file = NamedTempFile::new_in(dir)
-        .context("Failed to create temporary file")?;
+    let mut temp_file = NamedTempFile::new_in(dir).context("Failed to create temporary file")?;
 
     // Serialize to JSON with pretty formatting
-    let json = serde_json::to_string_pretty(data)
-        .context("Failed to serialize to JSON")?;
+    let json = serde_json::to_string_pretty(data).context("Failed to serialize to JSON")?;
 
     // Validate the JSON by parsing it back
-    let _: serde_json::Value = serde_json::from_str(&json)
-        .context("Generated invalid JSON")?;
+    let _: serde_json::Value = serde_json::from_str(&json).context("Generated invalid JSON")?;
 
     // Write to temporary file
     temp_file
@@ -38,7 +34,7 @@ pub fn write_json_atomic<T: Serialize>(path: &Path, data: &T) -> Result<()> {
     temp_file
         .flush()
         .context("Failed to flush temporary file")?;
-    
+
     // Sync to ensure durability
     temp_file
         .as_file()
@@ -57,18 +53,18 @@ pub fn write_json_atomic<T: Serialize>(path: &Path, data: &T) -> Result<()> {
 pub fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T> {
     let contents = fs::read_to_string(path)
         .with_context(|| format!("Failed to read file: {}", path.display()))?;
-    
+
     // Try to parse as generic JSON first for better error messages
     let json_value: serde_json::Value = serde_json::from_str(&contents)
         .with_context(|| format!("Invalid JSON in file: {}", path.display()))?;
-    
+
     // Then deserialize to the target type
     serde_json::from_value(json_value)
         .with_context(|| format!("JSON schema mismatch in file: {}", path.display()))
 }
 
 /// Read JSON with a fallback value if the file doesn't exist or is invalid
-pub fn read_json_or_default<T>(path: &Path) -> T 
+pub fn read_json_or_default<T>(path: &Path) -> T
 where
     T: for<'de> Deserialize<'de> + Default,
 {
@@ -184,7 +180,7 @@ mod tests {
 
         // Write corrupted data
         fs::write(&file_path, "invalid").unwrap();
-        
+
         // Should still return default
         let data: ConfigData = read_json_or_default(&file_path);
         assert_eq!(data, ConfigData::default());

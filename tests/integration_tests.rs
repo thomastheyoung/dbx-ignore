@@ -1,9 +1,9 @@
 mod common;
 
 use common::TestEnvironment;
-use dbx_ignore::{run, Config, Action};
-use std::path::PathBuf;
+use dbx_ignore::{Action, Config, run};
 use serial_test::serial;
+use std::path::PathBuf;
 
 #[test]
 fn test_config_creation() {
@@ -248,7 +248,7 @@ fn test_run_on_supported_platform() {
 
 #[test]
 fn test_platform_detection_consistency() {
-    use dbx_ignore::platforms::{get_platform_info, CurrentPlatform};
+    use dbx_ignore::platforms::{CurrentPlatform, get_platform_info};
     use dbx_ignore::traits::PlatformHandler;
 
     let (platform_name, is_supported) = get_platform_info();

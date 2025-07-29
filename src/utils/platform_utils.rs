@@ -1,7 +1,7 @@
 use crate::{platforms::CurrentPlatform, traits::PlatformHandler};
 use anyhow::Result;
-use std::path::Path;
 use std::io;
+use std::path::Path;
 
 /// Check if a path has any of the target ignore attributes
 pub fn has_any_ignore_attribute(path: &Path) -> bool {
@@ -36,9 +36,8 @@ pub fn remove_ignore_attributes(path: &Path) -> Result<usize> {
     Ok(count)
 }
 
-
 /// Helper function for consistent IO error handling across platforms
-/// 
+///
 /// This function handles common patterns like treating NotFound as Ok(false)
 /// and converting other errors to anyhow errors with context.
 pub fn handle_attribute_check_error(e: io::Error, attr: &str) -> Result<bool> {
@@ -52,6 +51,11 @@ pub fn handle_attribute_check_error(e: io::Error, attr: &str) -> Result<bool> {
 pub fn handle_attribute_remove_error(e: io::Error, attr: &str, path: &Path) -> Result<()> {
     match e.kind() {
         io::ErrorKind::NotFound => Ok(()),
-        _ => Err(anyhow::anyhow!("Failed to remove attribute {} from {}: {}", attr, path.display(), e)),
+        _ => Err(anyhow::anyhow!(
+            "Failed to remove attribute {} from {}: {}",
+            attr,
+            path.display(),
+            e
+        )),
     }
 }

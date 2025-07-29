@@ -1,9 +1,9 @@
 mod common;
 
 use common::TestEnvironment;
-use dbx_ignore::{run, Config, Action};
-use std::fs;
+use dbx_ignore::{Action, Config, run};
 use serial_test::serial;
+use std::fs;
 
 #[test]
 #[serial]
@@ -33,13 +33,12 @@ fn test_git_mode_in_valid_repository() {
     };
 
     // Change to temp directory for the test
-    
+
     std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    
 
     assert!(result.is_ok());
 }
@@ -64,13 +63,12 @@ fn test_git_mode_outside_repository() {
     };
 
     // Change to temp directory for the test
-    
+
     std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    
 
     // Should fail when not in a git repository
     assert!(result.is_err());
@@ -102,13 +100,12 @@ fn test_git_mode_with_empty_gitignore() {
     };
 
     // Change to temp directory for the test
-    
+
     std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    
 
     // Should succeed even with empty .gitignore
     assert!(result.is_ok());
@@ -137,13 +134,12 @@ fn test_git_mode_with_no_gitignore() {
     };
 
     // Change to temp directory for the test
-    
+
     std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    
 
     // Should succeed even without .gitignore
     assert!(result.is_ok());
@@ -188,13 +184,12 @@ fn test_git_mode_with_complex_gitignore() {
     };
 
     // Change to temp directory for the test
-    
+
     std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    
 
     assert!(result.is_ok());
 }
@@ -229,13 +224,12 @@ fn test_git_mode_with_negated_patterns() {
     };
 
     // Change to temp directory for the test
-    
+
     std::env::set_current_dir(&env.temp_path).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    
 
     // Should succeed - negated patterns are skipped
     assert!(result.is_ok());
@@ -277,14 +271,13 @@ fn test_mixed_mode_vs_git_mode() {
     };
 
     // Change to temp directory for the tests
-    
+
     std::env::set_current_dir(&env.temp_path).unwrap();
 
     let file_result = run(file_config);
     let git_result = run(git_config);
 
     // Restore original directory
-    
 
     // Both should succeed
     assert!(file_result.is_ok());
@@ -317,13 +310,12 @@ fn test_git_repository_discovery() {
     };
 
     // Change to subdirectory and test git discovery
-    
+
     std::env::set_current_dir(&subdir).unwrap();
 
     let result = run(config);
 
     // Restore original directory
-    
 
     // Should succeed - git repository should be discovered from parent
     assert!(result.is_ok());

@@ -40,8 +40,7 @@ impl PlatformHandler for LinuxHandler {
             Err(e) => {
                 // If the attribute doesn't exist, that's fine
                 match e.kind() {
-                    std::io::ErrorKind::NotFound
-                    | std::io::ErrorKind::InvalidInput => Ok(()), // ENODATA on Linux
+                    std::io::ErrorKind::NotFound | std::io::ErrorKind::InvalidInput => Ok(()), // ENODATA on Linux
                     _ => platform_utils::handle_attribute_remove_error(e, attr, path),
                 }
             }

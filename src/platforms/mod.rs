@@ -22,5 +22,8 @@ pub use unsupported::UnsupportedHandler as CurrentPlatform;
 
 /// Get platform-specific information
 pub fn get_platform_info() -> (&'static str, bool) {
-    (CurrentPlatform::platform_name(), CurrentPlatform::is_supported())
+    (
+        CurrentPlatform::platform_name(),
+        CurrentPlatform::is_supported(),
+    )
 }

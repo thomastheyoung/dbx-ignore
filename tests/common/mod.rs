@@ -5,7 +5,7 @@ use tempfile::TempDir;
 /// Test utilities and helpers
 #[allow(dead_code)]
 pub struct TestEnvironment {
-    _temp_dir: TempDir,  // Prefixed with _ since we only need it to keep the directory alive
+    _temp_dir: TempDir, // Prefixed with _ since we only need it to keep the directory alive
     pub temp_path: PathBuf,
 }
 

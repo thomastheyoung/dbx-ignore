@@ -70,7 +70,7 @@ fn test_windows_platform_handler() {
 
 #[test]
 fn test_current_platform_detection() {
-    use dbx_ignore::platforms::{get_platform_info, CurrentPlatform};
+    use dbx_ignore::platforms::{CurrentPlatform, get_platform_info};
 
     let (platform_name, is_supported) = get_platform_info();
 

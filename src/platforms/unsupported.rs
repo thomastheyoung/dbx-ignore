@@ -15,12 +15,16 @@ impl PlatformHandler for UnsupportedHandler {
 
     fn add_attribute(_path: &Path, _attr: &str) -> Result<()> {
         // No-op on unsupported platforms - cannot add ignore markers
-        Err(anyhow::anyhow!("Adding ignore markers not supported on this platform"))
+        Err(anyhow::anyhow!(
+            "Adding ignore markers not supported on this platform"
+        ))
     }
 
     fn remove_attribute(_path: &Path, _attr: &str) -> Result<()> {
         // No-op on unsupported platforms - cannot remove ignore markers
-        Err(anyhow::anyhow!("Removing ignore markers not supported on this platform"))
+        Err(anyhow::anyhow!(
+            "Removing ignore markers not supported on this platform"
+        ))
     }
 
     fn platform_name() -> &'static str {

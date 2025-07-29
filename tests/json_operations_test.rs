@@ -13,7 +13,7 @@ fn test_daemon_status_write_and_read() -> Result<()> {
 
     // Use current process PID which definitely exists
     let current_pid = std::process::id();
-    
+
     let status = DaemonStatus {
         pid: current_pid,
         repo_path: repo_path.to_path_buf(),
@@ -97,14 +97,8 @@ fn test_tracked_files_write_and_read() -> Result<()> {
     let repo_path = temp_dir.path();
 
     let mut tracked = TrackedFiles::default();
-    tracked.add_files(&[
-        PathBuf::from("file1.txt"),
-        PathBuf::from("dir/file2.log"),
-    ]);
-    tracked.add_patterns(&[
-        "*.log".to_string(),
-        "build/**".to_string(),
-    ]);
+    tracked.add_files(&[PathBuf::from("file1.txt"), PathBuf::from("dir/file2.log")]);
+    tracked.add_patterns(&["*.log".to_string(), "build/**".to_string()]);
 
     // Save
     tracked.save(repo_path)?;
@@ -117,7 +111,11 @@ fn test_tracked_files_write_and_read() -> Result<()> {
     let loaded = TrackedFiles::load(repo_path)?;
     assert_eq!(loaded.marked_files.len(), 2);
     assert!(loaded.marked_files.contains(&PathBuf::from("file1.txt")));
-    assert!(loaded.marked_files.contains(&PathBuf::from("dir/file2.log")));
+    assert!(
+        loaded
+            .marked_files
+            .contains(&PathBuf::from("dir/file2.log"))
+    );
     assert_eq!(loaded.patterns.len(), 2);
     assert!(loaded.patterns.contains(&"*.log".to_string()));
     assert!(loaded.patterns.contains(&"build/**".to_string()));
@@ -168,11 +166,14 @@ fn test_tracked_files_invalid_paths() -> Result<()> {
     let tracked_dir = repo_path.join(".dbx-ignore");
     fs::create_dir_all(&tracked_dir)?;
     let tracked_file = tracked_dir.join("tracked_files.json");
-    fs::write(&tracked_file, r#"{
+    fs::write(
+        &tracked_file,
+        r#"{
         "marked_files": ["valid.txt", "", "also_valid.txt"],
         "patterns": ["*.log", "", "*.tmp"],
         "last_updated": "2024-01-01T00:00:00Z"
-    }"#)?;
+    }"#,
+    )?;
 
     // Should filter out empty paths/patterns
     let loaded = TrackedFiles::load(repo_path)?;
@@ -234,7 +235,7 @@ fn test_atomic_write_prevents_corruption() -> Result<()> {
 
     // Simulate a write that would fail mid-way (we can't easily simulate this,
     // but the atomic write guarantees either complete success or complete failure)
-    
+
     // Even if we could simulate a failure, the original file should remain intact
     let loaded_after = TrackedFiles::load(repo_path)?;
     assert_eq!(loaded_after.marked_files.len(), 1);
@@ -248,12 +249,12 @@ fn test_large_tracked_files() -> Result<()> {
     let repo_path = temp_dir.path();
 
     let mut tracked = TrackedFiles::default();
-    
+
     // Add many files
     for i in 0..1000 {
         tracked.add_files(&[PathBuf::from(format!("file{}.txt", i))]);
     }
-    
+
     // Add many patterns
     for i in 0..100 {
         tracked.add_patterns(&[format!("pattern{}/*", i)]);

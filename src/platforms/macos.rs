@@ -94,7 +94,7 @@ impl PlatformHandler for MacOSHandler {
         if should_remove {
             match xattr::remove(path, attr) {
                 Ok(()) => Ok(()),
-                Err(e) => platform_utils::handle_attribute_remove_error(e, attr, path)
+                Err(e) => platform_utils::handle_attribute_remove_error(e, attr, path),
             }
         } else {
             // Silently skip the inappropriate attribute

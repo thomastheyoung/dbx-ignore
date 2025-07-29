@@ -60,7 +60,12 @@ impl PlatformHandler for WindowsHandler {
                     // If the stream doesn't exist, that's fine
                     match e.kind() {
                         std::io::ErrorKind::NotFound => Ok(()),
-                        _ => Err(anyhow::anyhow!("Failed to remove stream {} from {}: {}", attr, path.display(), e)),
+                        _ => Err(anyhow::anyhow!(
+                            "Failed to remove stream {} from {}: {}",
+                            attr,
+                            path.display(),
+                            e
+                        )),
                     }
                 }
             }

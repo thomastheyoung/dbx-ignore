@@ -43,7 +43,6 @@ mod macos_tests {
         assert!(!result.unwrap());
     }
 
-
     #[test]
     fn test_has_attribute_with_invalid_attribute_name() {
         let env = TestEnvironment::new();

@@ -79,14 +79,38 @@ fn main() -> Result<()> {
                 .value_name("FILE"),
         );
 
-    // If no arguments provided, show help
-    if std::env::args().len() == 1 {
-        app.print_help()?;
-        println!();
-        return Ok(());
-    }
+    let matches = app.clone().get_matches();
 
-    let matches = app.get_matches();
+    // Handle no arguments case - check if we're in a git repo
+    let no_file_args = matches.get_many::<String>("files").is_none();
+    let no_action_flags = !matches.get_flag("reset")
+        && !matches.get_flag("watch")
+        && !matches.get_flag("unwatch")
+        && !matches.get_flag("status")
+        && !matches.get_flag("git");  // Don't show help if --git is explicitly provided
+
+    if no_file_args && no_action_flags {
+        // Check if we're in a git repository with a .gitignore
+        let current_dir = std::env::current_dir()?;
+        let has_gitignore = current_dir.join(".gitignore").exists();
+        let in_git_repo = git2::Repository::discover(&current_dir).is_ok();
+
+        if in_git_repo && has_gitignore {
+            // Process git-ignored files automatically
+            if !matches.get_flag("quiet") {
+                println!(
+                    "{} No arguments provided. Processing git-ignored files...",
+                    "🔍".yellow()
+                );
+            }
+            // Continue with normal processing - git_mode will be set to true later
+        } else {
+            // Not in a git repo or no .gitignore - show help
+            app.print_help()?;
+            println!();
+            return Ok(());
+        }
+    }
 
     // Check if status mode is requested
     if matches.get_flag("status") {
@@ -97,7 +121,10 @@ fn main() -> Result<()> {
     // Determine action based on flags
     let action = if matches.get_flag("reset") {
         if matches.get_flag("watch") || matches.get_flag("unwatch") {
-            eprintln!("{}", "Error: Cannot combine --reset with --watch or --unwatch".red());
+            eprintln!(
+                "{}",
+                "Error: Cannot combine --reset with --watch or --unwatch".red()
+            );
             std::process::exit(1);
         }
         Action::Reset
@@ -118,17 +145,16 @@ fn main() -> Result<()> {
         .unwrap_or_default()
         .cloned()
         .collect();
-    
-    let files: Vec<PathBuf> = file_args.iter()
-        .map(PathBuf::from)
-        .collect();
-    
+
+    let files: Vec<PathBuf> = file_args.iter().map(PathBuf::from).collect();
+
     // Detect which arguments are patterns (contain wildcards)
-    let patterns: Vec<String> = file_args.iter()
+    let patterns: Vec<String> = file_args
+        .iter()
         .filter(|arg| dbx_ignore::is_glob_pattern(arg))
         .cloned()
         .collect();
-    
+
     // Validate dangerous operations
     if action == Action::Ignore && !files.is_empty() {
         // Check if user is trying to ignore current directory or everything
@@ -138,20 +164,29 @@ fn main() -> Result<()> {
             PathBuf::from("./"),
             PathBuf::from("./*"),
         ];
-        
-        if files.iter().any(|f| dangerous_patterns.contains(f) || f.to_str() == Some("*")) {
+
+        if files
+            .iter()
+            .any(|f| dangerous_patterns.contains(f) || f.to_str() == Some("*"))
+        {
             // Check if we have a git repository with .gitignore
             let current_dir = std::env::current_dir().unwrap_or_default();
             let has_gitignore = current_dir.join(".gitignore").exists();
             let in_git_repo = git2::Repository::discover(&current_dir).is_ok();
-            
+
             if !has_gitignore || !in_git_repo {
                 eprintln!("{}", "Error: Cannot mark entire directory without a .gitignore file in a git repository.".red());
-                eprintln!("{}", "This safeguard prevents accidentally marking all files for Dropbox ignore.".yellow());
+                eprintln!(
+                    "{}",
+                    "This safeguard prevents accidentally marking all files for Dropbox ignore."
+                        .yellow()
+                );
                 eprintln!();
                 eprintln!("{}", "Options:".bold());
                 eprintln!("  1. Create a .gitignore file and specify which files to ignore");
-                eprintln!("  2. Specify individual files or directories: dbx-ignore node_modules/ target/");
+                eprintln!(
+                    "  2. Specify individual files or directories: dbx-ignore node_modules/ target/"
+                );
                 eprintln!("  3. Use --git mode to process git-ignored files: dbx-ignore --git");
                 eprintln!();
                 eprintln!("Run 'dbx-ignore --help' for more information.");
