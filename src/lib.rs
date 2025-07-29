@@ -309,16 +309,19 @@ fn process_files_and_patterns(config: &Config) -> Result<()> {
 fn get_files_from_paths(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
     let mut items = Vec::new();
     
+    // Separate patterns from regular paths
+    let mut regular_paths = Vec::new();
+    
     for path in paths {
         let path_str = path.to_string_lossy();
         
-        // Check if this is a glob pattern
+        // Check if this is a pattern
         if path_str.contains('*') || path_str.contains('?') || path_str.contains('[') {
             // Use glob to expand the pattern
             match glob::glob(&path_str) {
-                Ok(paths) => {
+                Ok(mut paths) => {
                     let mut found_any = false;
-                    for entry in paths {
+                    for entry in &mut paths {
                         match entry {
                             Ok(p) => {
                                 if p.exists() {
@@ -332,14 +335,37 @@ fn get_files_from_paths(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
                         }
                     }
                     if !found_any {
-                        return Err(anyhow::anyhow!("No files found matching pattern: {}", path_str));
+                        // Pattern didn't match any files
+                        // Store this for error reporting later
                     }
                 }
                 Err(e) => {
-                    return Err(anyhow::anyhow!("Invalid glob pattern '{}': {}", path_str, e));
+                    return Err(anyhow::anyhow!("Invalid pattern '{}': {}", path_str, e));
                 }
             }
-        } else if path.exists() {
+        } else {
+            regular_paths.push(path.clone());
+        }
+    }
+    
+    // Check if no files were found from patterns
+    if paths.iter().any(|p| {
+        let s = p.to_string_lossy();
+        s.contains('*') || s.contains('?') || s.contains('[')
+    }) && items.is_empty() {
+        let pattern_strings: Vec<String> = paths.iter()
+            .filter(|p| {
+                let s = p.to_string_lossy();
+                s.contains('*') || s.contains('?') || s.contains('[')
+            })
+            .map(|p| p.display().to_string())
+            .collect();
+        return Err(anyhow::anyhow!("No files found matching patterns: {}", pattern_strings.join(", ")));
+    }
+    
+    // Process regular paths
+    for path in regular_paths {
+        if path.exists() {
             // Special case: if path is '.' (current directory), expand to contents
             if path.to_str() == Some(".") || path.file_name().and_then(|n| n.to_str()) == Some(".") {
                 // Get all files and directories in current directory
@@ -357,7 +383,7 @@ fn get_files_from_paths(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
             // Check if this is a .gitignore file
             else if path.file_name().and_then(|n| n.to_str()) == Some(".gitignore") {
                 // Process .gitignore file and add the ignored files to the list
-                let gitignore_files = utils::git_utils::get_git_ignored_files_from_gitignore(path)?;
+                let gitignore_files = utils::git_utils::get_git_ignored_files_from_gitignore(&path)?;
                 items.extend(gitignore_files);
             } else {
                 // Add the path directly without walking directories

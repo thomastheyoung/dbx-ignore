@@ -364,38 +364,18 @@ fn find_marked_files(repo_root: &Path) -> Result<Vec<PathBuf>> {
 }
 
 fn perform_pattern_scan(repo_root: &Path, patterns: &[String]) -> Result<()> {
-    use glob::glob;
-    
     let mut added = 0;
     let mut removed = 0;
     let mut errors = 0;
     
-    // Build a set of all files that should be marked based on patterns
-    let mut files_to_mark = HashSet::new();
-    
-    for pattern in patterns {
-        // Convert relative pattern to absolute path pattern
-        let abs_pattern = if pattern.starts_with('/') {
-            pattern.to_string()
-        } else {
-            repo_root.join(pattern).to_string_lossy().to_string()
-        };
-        
-        // Find all files matching the pattern
-        match glob(&abs_pattern) {
-            Ok(paths) => {
-                for entry in paths.flatten() {
-                    if entry.exists() {
-                        files_to_mark.insert(entry);
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("  {} Invalid pattern '{}': {}", "✗".red(), pattern, e);
-                errors += 1;
-            }
+    // Use our consistent pattern matcher
+    let files_to_mark = match crate::utils::git_utils::find_files_matching_patterns(repo_root, patterns) {
+        Ok(files) => files.into_iter().collect::<HashSet<_>>(),
+        Err(e) => {
+            eprintln!("  {} Failed to find files matching patterns: {}", "✗".red(), e);
+            return Ok(());
         }
-    }
+    };
     
     // Mark files that match patterns but aren't marked
     for file_path in &files_to_mark {

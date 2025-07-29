@@ -19,11 +19,24 @@ fn test_wildcard_single_pattern() {
     let _test3 = env.create_file("test3.md", "content");
 
     let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--quiet"])
+        .args(&["--dry-run"])  // Remove --quiet to see more output
         .arg(env.temp_dir.path().join("*.txt").to_str().unwrap())
         .output()
         .expect("Failed to execute binary");
 
+    if !output.status.success() {
+        eprintln!("Command failed!");
+        eprintln!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        eprintln!("stderr (full): {}", String::from_utf8_lossy(&output.stderr));
+        eprintln!("Pattern: {}", env.temp_dir.path().join("*.txt").display());
+        
+        // List files in the temp directory
+        eprintln!("\nFiles in temp directory:");
+        for entry in std::fs::read_dir(env.temp_dir.path()).unwrap() {
+            let entry = entry.unwrap();
+            eprintln!("  {}", entry.path().display());
+        }
+    }
     assert!(output.status.success());
 }
 

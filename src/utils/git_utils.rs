@@ -1,56 +1,72 @@
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::collections::HashSet;
+use crate::utils::pattern_matcher;
 
-/// Runs git ls-files command to find ignored files
-/// 
-/// This is the core implementation that executes git's built-in ignore handling.
-/// It supports all git ignore features including negated patterns.
-pub fn run_git_ls_files_ignored(workdir: &Path) -> Result<Vec<String>> {
-    let output = Command::new("git")
-        .current_dir(workdir)
-        .args(["ls-files", "--ignored", "--exclude-standard", "-o"])
-        .output()
-        .context("Failed to execute git ls-files command")?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow::anyhow!("git ls-files failed: {}", stderr));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    Ok(stdout.lines()
-        .map(|line| line.trim())
-        .filter(|line| !line.is_empty())
-        .map(|s| s.to_string())
-        .collect())
-}
 
 /// Get all git-ignored files in the current directory
 pub fn get_git_ignored_files() -> Result<Vec<PathBuf>> {
     get_git_ignored_files_in_path(&std::env::current_dir()?)
 }
 
-/// Get all git-ignored files in a specific path
+/// Get all git-ignored files in a specific path using our own implementation
 pub fn get_git_ignored_files_in_path(path: &Path) -> Result<Vec<PathBuf>> {
     // Check if we're in a git repository
-    let repo = git2::Repository::discover(path)
+    let _repo = git2::Repository::discover(path)
         .context("Not in a git repository or git repository not found")?;
-
-    let workdir = repo.workdir()
-        .context("Repository has no working directory")?;
-
-    let ignored_files = run_git_ls_files_ignored(workdir)?;
     
-    let mut paths = Vec::new();
-    for file in ignored_files {
-        let path = workdir.join(file);
-        if path.exists() {
-            paths.push(path);
+    // Build two walkers - one that respects gitignore, one that doesn't
+    use ignore::WalkBuilder;
+    
+    // Walker that sees everything (to get all files)
+    let mut all_files_builder = WalkBuilder::new(path);
+    all_files_builder
+        .hidden(false)
+        .git_ignore(false)
+        .git_global(false)
+        .git_exclude(false);
+    
+    // Walker that respects gitignore (to get non-ignored files)
+    let mut filtered_builder = WalkBuilder::new(path);
+    filtered_builder
+        .hidden(false)
+        .git_ignore(true)
+        .git_global(true)
+        .git_exclude(true);
+    
+    // Collect all files
+    let mut all_files = HashSet::new();
+    for entry in all_files_builder.build() {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            // Skip .git directory and only collect files (not directories)
+            if !path.components().any(|c| c.as_os_str() == ".git") && path.is_file() {
+                all_files.insert(path.to_path_buf());
+            }
         }
     }
-
-    Ok(paths)
+    
+    // Collect non-ignored files
+    let mut non_ignored_files = HashSet::new();
+    for entry in filtered_builder.build() {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            // Skip .git directory and only collect files (not directories)
+            if !path.components().any(|c| c.as_os_str() == ".git") && path.is_file() {
+                non_ignored_files.insert(path.to_path_buf());
+            }
+        }
+    }
+    
+    // The ignored files are the difference
+    let mut ignored_files: Vec<PathBuf> = all_files.difference(&non_ignored_files)
+        .cloned()
+        .collect();
+    
+    // Sort for consistent output
+    ignored_files.sort();
+    
+    Ok(ignored_files)
 }
 
 /// Get git-ignored files from a specific .gitignore file's directory
@@ -66,4 +82,10 @@ pub fn get_git_ignored_files_from_gitignore(gitignore_path: &Path) -> Result<Vec
     Ok(all_ignored.into_iter()
         .filter(|path| path.starts_with(gitignore_dir))
         .collect())
+}
+
+/// Find files matching patterns using gitignore-style pattern matching
+/// This ensures consistent behavior whether in a git repository or not
+pub fn find_files_matching_patterns(base_path: &Path, patterns: &[String]) -> Result<Vec<PathBuf>> {
+    pattern_matcher::find_files_matching_patterns(base_path, patterns)
 }

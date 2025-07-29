@@ -25,7 +25,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 glob = "0.3"
+ignore = "0.4"
 tempfile = "3.8"
+walkdir = "2.4"
 
 # Platform-specific dependencies
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
