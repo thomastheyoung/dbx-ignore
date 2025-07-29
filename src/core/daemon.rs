@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use serde::{Deserialize, Serialize};
+use crate::core::json_utils;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DaemonStatus {
@@ -22,11 +23,21 @@ impl DaemonStatus {
             return Ok(None);
         }
 
-        let contents = fs::read_to_string(&status_file)
-            .context("Failed to read daemon status file")?;
-        
-        let status: DaemonStatus = serde_json::from_str(&contents)
-            .context("Failed to parse daemon status")?;
+        // Use robust JSON reading
+        let status = match json_utils::read_json::<DaemonStatus>(&status_file) {
+            Ok(s) => s,
+            Err(_) => {
+                // If file is corrupted, remove it and return None
+                let _ = fs::remove_file(&status_file);
+                return Ok(None);
+            }
+        };
+
+        // Validate required fields
+        if status.pid == 0 {
+            let _ = fs::remove_file(&status_file);
+            return Ok(None);
+        }
 
         // Check if process is still running
         if is_process_running(status.pid) {
@@ -41,16 +52,13 @@ impl DaemonStatus {
     pub fn write(&self, repo_path: &Path) -> Result<()> {
         let status_file = Self::status_file_path(repo_path);
         
-        // Create .dbx-ignore directory if it doesn't exist
-        if let Some(parent) = status_file.parent() {
-            fs::create_dir_all(parent)
-                .context("Failed to create .dbx-ignore directory")?;
+        // Validate before writing
+        if self.pid == 0 {
+            return Err(anyhow::anyhow!("Invalid PID: 0"));
         }
 
-        let contents = serde_json::to_string_pretty(self)
-            .context("Failed to serialize daemon status")?;
-        
-        fs::write(&status_file, contents)
+        // Use atomic write
+        json_utils::write_json_atomic(&status_file, self)
             .context("Failed to write daemon status file")?;
 
         Ok(())

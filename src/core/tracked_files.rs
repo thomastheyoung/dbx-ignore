@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::fs;
+use crate::core::json_utils;
 
 /// Stores information about files that have been marked with ignore attributes
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -25,27 +26,27 @@ impl TrackedFiles {
             return Ok(Self::default());
         }
         
-        let content = fs::read_to_string(&state_file)
-            .context("Failed to read tracked files state")?;
-            
-        serde_json::from_str(&content)
-            .context("Failed to parse tracked files state")
+        // Use robust JSON reading with fallback to default
+        match json_utils::read_json::<TrackedFiles>(&state_file) {
+            Ok(mut tracked) => {
+                // Validate and clean data
+                tracked.marked_files.retain(|p| p.as_os_str().len() > 0);
+                tracked.patterns.retain(|p| !p.is_empty());
+                Ok(tracked)
+            }
+            Err(_) => {
+                // If corrupted, return default and the corrupted file will be overwritten
+                Ok(Self::default())
+            }
+        }
     }
     
     /// Save tracked files to the state file
     pub fn save(&self, repo_path: &Path) -> Result<()> {
         let state_file = Self::state_file_path(repo_path);
         
-        // Ensure the .dbx-ignore directory exists
-        if let Some(parent) = state_file.parent() {
-            fs::create_dir_all(parent)
-                .context("Failed to create .dbx-ignore directory")?;
-        }
-        
-        let content = serde_json::to_string_pretty(self)
-            .context("Failed to serialize tracked files")?;
-            
-        fs::write(&state_file, content)
+        // Use atomic write
+        json_utils::write_json_atomic(&state_file, self)
             .context("Failed to write tracked files state")?;
             
         Ok(())
