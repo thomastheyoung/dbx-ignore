@@ -1,42 +1,87 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to dbx-ignore will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2024-12-19
+## [Unreleased]
 
 ### Added
 
-- Shell script optimization for xattr removal to prevent redundant operations
-- Comprehensive test suite for validation of optimization logic
-- Shellcheck compliance for improved code quality
-- Version tracking in shell script and Rust implementation
+- Created comprehensive API documentation (API.md)
+- Created detailed installation guide (INSTALL.md)
+
+### Changed
+
+- Streamlined README.md with cleaner structure and focused content
+
+## [0.4.0] - 2025-07-29
+
+### Added
+
+- Auto-process git-ignored files when run without arguments in a git repository
+- Automatically add `.dbx-ignore/` to `.gitignore` to prevent committing metadata
+- Always mark `.dbx-ignore` folder itself as Dropbox-ignored
+
+### Changed
+
+- Improved default behavior for better user experience
+- Updated tests to handle new automatic behaviors
 
 ### Fixed
 
-- Fixed shellcheck warnings in both main script and test files
-- Improved variable quoting for better shell safety
-- Removed unused functions that caused unreachable code warnings
+- Fixed test failures related to new automatic behaviors
+- Updated test expectations for multiple file processing scenarios
 
-### Migration Notes
+## [0.3.0] - 2025-07-28
 
-- **Breaking Change**: This release includes optimizations that change the execution pattern of xattr removal commands
-- Scripts that depend on exact xattr call counts may need adjustment
-- The optimization ensures that directories are processed only once, potentially reducing the number of operations
-- Users upgrading should verify that their workflow still functions as expected after this optimization
-- If you experience any issues with the optimized behavior, you can fall back to explicit file arguments mode
+### Added
 
-### Technical Details
+- Major architectural improvements and code quality enhancements
+- Atomic JSON operations for better reliability
+- Comprehensive test suite improvements
 
-- Improved deduplication logic for directory processing
-- Enhanced pattern matching efficiency
-- Better error handling for edge cases
-- All tests passing with CI validation
+### Changed
 
-## [0.1.0] - Initial Release
+- Refactored core functionality for better maintainability
+- Enhanced error handling throughout the codebase
 
-- Basic xattr removal functionality
-- Git integration for .gitignore pattern processing
-- Cross-platform support for macOS extended attributes
+### Fixed
+
+- Fixed directory handling in gitignore processing
+- Improved wildcard support implementation
+
+## [0.2.1] - 2025-07-28
+
+### Fixed
+
+- Removed unused dependencies
+- Code cleanup and optimization
+
+## [0.2.0] - 2025-07-25
+
+### Added
+
+- Enhanced watch mode with pattern-based monitoring
+- Combined mark & watch operation with single command
+- Ability to specify patterns directly with --watch flag
+- Comprehensive documentation for pattern quoting
+
+### Changed
+
+- Watch mode now supports three distinct behaviors based on tracked state
+- Improved user experience with clearer mode indicators
+
+## [0.1.0] - 2025-07-14
+
+### Added
+
+- Initial release with core functionality
+- Cross-platform support (macOS, Linux, Windows)
+- Git integration for processing ignored files
+- Basic ignore marker management (add/remove)
+- Wildcard and pattern matching support
+- Dry-run mode for safe operations
+- Verbose and quiet output modes
+- Status command to check directory state
