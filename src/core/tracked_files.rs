@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::fs;
-use crate::core::json_utils;
+use crate::utils::json_utils;
 
 /// Stores information about files that have been marked with ignore attributes
 #[derive(Debug, Serialize, Deserialize, Default)]

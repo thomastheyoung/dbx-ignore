@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use serde::{Deserialize, Serialize};
-use crate::core::json_utils;
+use crate::utils::json_utils;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DaemonStatus {
