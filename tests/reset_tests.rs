@@ -3,8 +3,10 @@ mod common;
 use common::TestEnvironment;
 use dbx_ignore::{run, Config, Action};
 use std::path::PathBuf;
+use serial_test::serial;
 
 #[test]
+#[serial]
 fn test_reset_removes_markers() {
     let env = TestEnvironment::new();
     let test_file = env.create_file("test.txt", "content");
@@ -54,6 +56,7 @@ fn test_reset_removes_markers() {
 }
 
 #[test]
+#[serial]
 fn test_reset_on_unmarked_file() {
     let env = TestEnvironment::new();
     let test_file = env.create_file("unmarked.txt", "content");
@@ -77,6 +80,7 @@ fn test_reset_on_unmarked_file() {
 }
 
 #[test]
+#[serial]
 fn test_reset_multiple_files() {
     let env = TestEnvironment::new();
     let file1 = env.create_file("file1.txt", "content1");
@@ -117,6 +121,7 @@ fn test_reset_multiple_files() {
 }
 
 #[test]
+#[serial]
 fn test_reset_git_mode() {
     let env = TestEnvironment::new();
     
@@ -124,7 +129,7 @@ fn test_reset_git_mode() {
     let _repo = env.init_git_repo().expect("Failed to init git repo");
     
     // Create files and .gitignore
-    let ignored_file = env.create_file("ignored.log", "log content");
+    let _ignored_file = env.create_file("ignored.log", "log content");
     env.create_file("normal.txt", "normal content");
     env.create_gitignore(&["*.log"]);
     
@@ -162,9 +167,10 @@ fn test_reset_git_mode() {
 }
 
 #[test]
+#[serial]
 fn test_reset_dry_run() {
     let env = TestEnvironment::new();
-    let test_file = env.create_file("test.txt", "content");
+    let _test_file = env.create_file("test.txt", "content");
     
     // Add marker first
     let ignore_config = Config {

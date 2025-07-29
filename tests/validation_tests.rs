@@ -43,7 +43,7 @@ fn test_allow_marking_current_dir_with_gitignore() {
     // Initialize git repo and create .gitignore
     Command::new("git")
         .current_dir(temp_dir.path())
-        .args(&["init"])
+        .args(["init"])
         .output()
         .expect("Failed to init git");
         

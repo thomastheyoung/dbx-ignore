@@ -3,6 +3,7 @@ mod common;
 use common::TestEnvironment;
 use dbx_ignore::{run, Config, Action};
 use std::path::PathBuf;
+use serial_test::serial;
 
 #[test]
 fn test_config_creation() {
@@ -62,6 +63,7 @@ fn test_run_with_nonexistent_file() {
 }
 
 #[test]
+#[serial]
 fn test_run_with_existing_files() {
     let env = TestEnvironment::new();
     let test_file1 = env.create_file("test1.txt", "content1");
@@ -85,6 +87,7 @@ fn test_run_with_existing_files() {
 }
 
 #[test]
+#[serial]
 fn test_run_with_directory() {
     let env = TestEnvironment::new();
     let test_dir = env.create_dir("test_directory");
@@ -107,6 +110,7 @@ fn test_run_with_directory() {
 }
 
 #[test]
+#[serial]
 fn test_run_with_mixed_files_and_directories() {
     let env = TestEnvironment::new();
     let test_file = env.create_file("test.txt", "content");
@@ -130,6 +134,7 @@ fn test_run_with_mixed_files_and_directories() {
 }
 
 #[test]
+#[serial]
 fn test_dry_run_vs_actual_run() {
     let env = TestEnvironment::new();
     let test_file = env.create_file("test.txt", "content");
@@ -167,6 +172,7 @@ fn test_dry_run_vs_actual_run() {
 }
 
 #[test]
+#[serial]
 fn test_verbose_mode() {
     let env = TestEnvironment::new();
     let test_file = env.create_file("test.txt", "content");
@@ -189,6 +195,7 @@ fn test_verbose_mode() {
 }
 
 #[test]
+#[serial]
 fn test_quiet_mode() {
     let env = TestEnvironment::new();
     let test_file = env.create_file("test.txt", "content");
@@ -212,6 +219,7 @@ fn test_quiet_mode() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[serial]
 fn test_run_on_supported_platform() {
     use dbx_ignore::platforms::CurrentPlatform;
     use dbx_ignore::traits::PlatformHandler;

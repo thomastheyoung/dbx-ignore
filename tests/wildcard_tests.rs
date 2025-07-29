@@ -3,13 +3,6 @@ mod common;
 use common::TestEnvironment;
 use std::process::Command;
 
-fn get_binary_path() -> std::path::PathBuf {
-    let mut path = std::env::current_dir().expect("Failed to get current directory");
-    path.push("target");
-    path.push("release");
-    path.push("dbx-ignore");
-    path
-}
 
 #[test]
 fn test_wildcard_single_pattern() {
@@ -18,9 +11,9 @@ fn test_wildcard_single_pattern() {
     let _test2 = env.create_file("test2.txt", "content");
     let _test3 = env.create_file("test3.md", "content");
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run"])  // Remove --quiet to see more output
-        .arg(env.temp_dir.path().join("*.txt").to_str().unwrap())
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run"])  // Remove --quiet to see more output
+        .arg(env.path().join("*.txt").to_str().unwrap())
         .output()
         .expect("Failed to execute binary");
 
@@ -28,11 +21,11 @@ fn test_wildcard_single_pattern() {
         eprintln!("Command failed!");
         eprintln!("stdout: {}", String::from_utf8_lossy(&output.stdout));
         eprintln!("stderr (full): {}", String::from_utf8_lossy(&output.stderr));
-        eprintln!("Pattern: {}", env.temp_dir.path().join("*.txt").display());
+        eprintln!("Pattern: {}", env.path().join("*.txt").display());
         
         // List files in the temp directory
         eprintln!("\nFiles in temp directory:");
-        for entry in std::fs::read_dir(env.temp_dir.path()).unwrap() {
+        for entry in std::fs::read_dir(env.path()).unwrap() {
             let entry = entry.unwrap();
             eprintln!("  {}", entry.path().display());
         }
@@ -48,10 +41,10 @@ fn test_wildcard_multiple_patterns() {
     let _test3 = env.create_file("test3.md", "content");
     let _test4 = env.create_file("test4.md", "content");
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--quiet"])
-        .arg(env.temp_dir.path().join("*.txt").to_str().unwrap())
-        .arg(env.temp_dir.path().join("*.md").to_str().unwrap())
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--quiet"])
+        .arg(env.path().join("*.txt").to_str().unwrap())
+        .arg(env.path().join("*.md").to_str().unwrap())
         .output()
         .expect("Failed to execute binary");
 
@@ -65,9 +58,9 @@ fn test_wildcard_all_files() {
     let _test2 = env.create_file("test2.txt", "content");
     let _dir = env.create_dir("testdir");
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--quiet"])
-        .arg(env.temp_dir.path().join("*").to_str().unwrap())
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--quiet"])
+        .arg(env.path().join("*").to_str().unwrap())
         .output()
         .expect("Failed to execute binary");
 
@@ -79,9 +72,9 @@ fn test_wildcard_no_matches_error() {
     let env = TestEnvironment::new();
     // Don't create any files
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run"])
-        .arg(env.temp_dir.path().join("*.nonexistent").to_str().unwrap())
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run"])
+        .arg(env.path().join("*.nonexistent").to_str().unwrap())
         .output()
         .expect("Failed to execute binary");
 
@@ -100,9 +93,9 @@ fn test_wildcard_with_subdirectory() {
     std::fs::write(subdir.join("file1.rs"), "content").unwrap();
     std::fs::write(subdir.join("file2.rs"), "content").unwrap();
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--verbose"])
-        .arg(env.temp_dir.path().join("subdir/*.rs").to_str().unwrap())
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--verbose"])
+        .arg(env.path().join("subdir/*.rs").to_str().unwrap())
         .output()
         .expect("Failed to execute binary");
 
@@ -120,10 +113,10 @@ fn test_mixed_wildcard_and_literal() {
     let _test2 = env.create_file("test2.txt", "content");
     let _test3 = env.create_file("test3.md", "content");
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--verbose"])
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--verbose"])
         .arg(test1.to_str().unwrap()) // literal path
-        .arg(env.temp_dir.path().join("*.md").to_str().unwrap()) // wildcard
+        .arg(env.path().join("*.md").to_str().unwrap()) // wildcard
         .output()
         .expect("Failed to execute binary");
 
@@ -142,9 +135,9 @@ fn test_wildcard_question_mark() {
     let _test2 = env.create_file("test2.txt", "content");
     let _test = env.create_file("test.txt", "content");
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--verbose"])
-        .arg(env.temp_dir.path().join("test?.txt").to_str().unwrap())
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--verbose"])
+        .arg(env.path().join("test?.txt").to_str().unwrap())
         .output()
         .expect("Failed to execute binary");
 
@@ -163,9 +156,9 @@ fn test_wildcard_brackets() {
     let _test2 = env.create_file("test2.txt", "content");
     let _test3 = env.create_file("test3.txt", "content");
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--verbose"])
-        .arg(env.temp_dir.path().join("test[12].txt").to_str().unwrap())
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--verbose"])
+        .arg(env.path().join("test[12].txt").to_str().unwrap())
         .output()
         .expect("Failed to execute binary");
 
@@ -185,9 +178,9 @@ fn test_wildcard_folders() {
     let _build3 = env.create_dir("build3");
     let _src = env.create_dir("src");
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--verbose"])
-        .arg(env.temp_dir.path().join("build*").to_str().unwrap())
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--verbose"])
+        .arg(env.path().join("build*").to_str().unwrap())
         .output()
         .expect("Failed to execute binary");
 

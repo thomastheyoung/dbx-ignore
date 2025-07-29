@@ -3,8 +3,10 @@ mod common;
 use common::TestEnvironment;
 use dbx_ignore::status::StatusInfo;
 use std::fs;
+use serial_test::serial;
 
 #[test]
+#[serial]
 fn test_status_basic_info() {
     let env = TestEnvironment::new();
     
@@ -32,6 +34,7 @@ fn test_status_basic_info() {
 }
 
 #[test]
+#[serial]
 fn test_status_with_gitignore() {
     let env = TestEnvironment::new();
     
@@ -56,6 +59,7 @@ fn test_status_with_gitignore() {
 }
 
 #[test]
+#[serial]
 fn test_status_with_ignored_files() {
     let env = TestEnvironment::new();
     
@@ -96,7 +100,8 @@ fn test_status_with_ignored_files() {
     }
 }
 
-#[test] 
+#[test]
+#[serial]
 fn test_status_empty_directory() {
     let env = TestEnvironment::new();
     
@@ -117,6 +122,7 @@ fn test_status_empty_directory() {
 }
 
 #[test]
+#[serial]
 fn test_status_hidden_files_excluded() {
     let env = TestEnvironment::new();
     

@@ -6,8 +6,8 @@ use std::path::PathBuf;
 
 fn main() -> Result<()> {
     let mut app = Command::new("dbx-ignore")
-        .version("0.1.0")
-        .author("Claude Code")
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
         .about("Manage Dropbox ignore markers on files and directories")
         .arg(
             Arg::new("reset")
@@ -125,7 +125,7 @@ fn main() -> Result<()> {
     
     // Detect which arguments are patterns (contain wildcards)
     let patterns: Vec<String> = file_args.iter()
-        .filter(|arg| arg.contains('*') || arg.contains('?') || arg.contains('['))
+        .filter(|arg| dbx_ignore::is_glob_pattern(arg))
         .cloned()
         .collect();
     

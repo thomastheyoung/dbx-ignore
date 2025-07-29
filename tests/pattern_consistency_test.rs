@@ -99,7 +99,7 @@ fn test_gitignore_vs_cli_patterns() -> Result<()> {
         .collect();
     
     // Get files matching the same patterns via CLI
-    let patterns = vec!["*.log", "*.tmp", "build/"];
+    let patterns = ["*.log", "*.tmp", "build/"];
     let pattern_files = dbx_ignore::utils::pattern_matcher::find_files_matching_patterns(
         temp_path,
         &patterns.iter().map(|s| s.to_string()).collect::<Vec<_>>()

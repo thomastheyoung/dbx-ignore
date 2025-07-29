@@ -3,8 +3,10 @@ mod common;
 use common::TestEnvironment;
 use dbx_ignore::{run, Config, Action};
 use std::fs;
+use serial_test::serial;
 
 #[test]
+#[serial]
 fn test_git_mode_in_valid_repository() {
     let env = TestEnvironment::new();
 
@@ -43,6 +45,7 @@ fn test_git_mode_in_valid_repository() {
 }
 
 #[test]
+#[serial]
 fn test_git_mode_outside_repository() {
     let env = TestEnvironment::new();
 
@@ -74,6 +77,7 @@ fn test_git_mode_outside_repository() {
 }
 
 #[test]
+#[serial]
 fn test_git_mode_with_empty_gitignore() {
     let env = TestEnvironment::new();
 
@@ -111,6 +115,7 @@ fn test_git_mode_with_empty_gitignore() {
 }
 
 #[test]
+#[serial]
 fn test_git_mode_with_no_gitignore() {
     let env = TestEnvironment::new();
 
@@ -145,6 +150,7 @@ fn test_git_mode_with_no_gitignore() {
 }
 
 #[test]
+#[serial]
 fn test_git_mode_with_complex_gitignore() {
     let env = TestEnvironment::new();
 
@@ -194,6 +200,7 @@ fn test_git_mode_with_complex_gitignore() {
 }
 
 #[test]
+#[serial]
 fn test_git_mode_with_negated_patterns() {
     let env = TestEnvironment::new();
 
@@ -235,6 +242,7 @@ fn test_git_mode_with_negated_patterns() {
 }
 
 #[test]
+#[serial]
 fn test_mixed_mode_vs_git_mode() {
     let env = TestEnvironment::new();
 
@@ -284,6 +292,7 @@ fn test_mixed_mode_vs_git_mode() {
 }
 
 #[test]
+#[serial]
 fn test_git_repository_discovery() {
     let env = TestEnvironment::new();
 

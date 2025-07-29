@@ -43,12 +43,6 @@ mod macos_tests {
         assert!(!result.unwrap());
     }
 
-    #[test]
-    #[ignore = "remove_attribute no longer exists in the current implementation"]
-    fn test_remove_attribute_on_file_without_attribute() {
-        // This test is kept for historical reference but is no longer applicable
-        // The current implementation only adds ignore markers, not removes them
-    }
 
     #[test]
     fn test_has_attribute_with_invalid_attribute_name() {
@@ -58,10 +52,10 @@ mod macos_tests {
         // Test with an invalid/unusual attribute name
         let result = MacOSHandler::has_attribute(&test_file, "");
         // Empty attribute name might cause an error, which is acceptable
-        match result {
-            Ok(exists) => assert!(!exists),
-            Err(_) => {} // Error is acceptable for invalid attribute names
+        if let Ok(exists) = result {
+            assert!(!exists);
         }
+        // Error is acceptable for invalid attribute names
 
         let result = MacOSHandler::has_attribute(&test_file, "invalid.attribute.name");
         assert!(result.is_ok());

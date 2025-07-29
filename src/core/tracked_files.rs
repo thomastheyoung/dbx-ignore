@@ -30,7 +30,7 @@ impl TrackedFiles {
         match json_utils::read_json::<TrackedFiles>(&state_file) {
             Ok(mut tracked) => {
                 // Validate and clean data
-                tracked.marked_files.retain(|p| p.as_os_str().len() > 0);
+                tracked.marked_files.retain(|p| !p.as_os_str().is_empty());
                 tracked.patterns.retain(|p| !p.is_empty());
                 Ok(tracked)
             }

@@ -3,17 +3,10 @@ mod common;
 use common::TestEnvironment;
 use std::process::Command;
 
-fn get_binary_path() -> std::path::PathBuf {
-    let mut path = std::env::current_dir().expect("Failed to get current directory");
-    path.push("target");
-    path.push("release");
-    path.push("dbx-ignore");
-    path
-}
 
 #[test]
 fn test_cli_help() {
-    let output = Command::new(&get_binary_path())
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
         .arg("--help")
         .output()
         .expect("Failed to execute binary");
@@ -32,7 +25,7 @@ fn test_cli_help() {
 
 #[test]
 fn test_cli_version() {
-    let output = Command::new(&get_binary_path())
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
         .arg("--version")
         .output()
         .expect("Failed to execute binary");
@@ -45,8 +38,8 @@ fn test_cli_version() {
 
 #[test]
 fn test_cli_dry_run_with_nonexistent_file() {
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "/tmp/definitely_nonexistent_file_12345"])
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "/tmp/definitely_nonexistent_file_12345"])
         .output()
         .expect("Failed to execute binary");
 
@@ -56,8 +49,8 @@ fn test_cli_dry_run_with_nonexistent_file() {
 
 #[test]
 fn test_cli_dry_run_git_mode() {
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--git"])
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--git"])
         .current_dir(".")
         .output()
         .expect("Failed to execute binary");
@@ -72,8 +65,8 @@ fn test_cli_dry_run_git_mode() {
 
 #[test]
 fn test_cli_quiet_mode() {
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--quiet", "--git"])
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--quiet", "--git"])
         .current_dir(".")
         .output()
         .expect("Failed to execute binary");
@@ -87,8 +80,8 @@ fn test_cli_quiet_mode() {
 
 #[test]
 fn test_cli_verbose_mode() {
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--verbose", "--git"])
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--verbose", "--git"])
         .current_dir(".")
         .output()
         .expect("Failed to execute binary");
@@ -105,8 +98,8 @@ fn test_cli_with_existing_file() {
     let env = TestEnvironment::new();
     let test_file = env.create_file("test.txt", "test content");
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", test_file.to_str().unwrap()])
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", test_file.to_str().unwrap()])
         .output()
         .expect("Failed to execute binary");
 
@@ -121,8 +114,8 @@ fn test_cli_with_directory() {
     let env = TestEnvironment::new();
     let test_dir = env.create_dir("test_directory");
 
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", test_dir.to_str().unwrap()])
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", test_dir.to_str().unwrap()])
         .output()
         .expect("Failed to execute binary");
 
@@ -138,8 +131,8 @@ fn test_cli_with_multiple_files() {
     let test_file1 = env.create_file("test1.txt", "content1");
     let test_file2 = env.create_file("test2.txt", "content2");
 
-    let output = Command::new(&get_binary_path())
-        .args(&[
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args([
             "--dry-run",
             test_file1.to_str().unwrap(),
             test_file2.to_str().unwrap(),
@@ -157,8 +150,8 @@ fn test_cli_with_multiple_files() {
 fn test_cli_conflicting_flags() {
     // Test that CLI handles conflicting verbose and quiet flags appropriately
     // The behavior depends on implementation - some CLIs error, others use precedence
-    let output = Command::new(&get_binary_path())
-        .args(&["--verbose", "--quiet", "--dry-run", "--git"])
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--verbose", "--quiet", "--dry-run", "--git"])
         .current_dir(".")
         .output()
         .expect("Failed to execute binary");
@@ -177,8 +170,8 @@ fn test_cli_conflicting_flags() {
 #[test]
 fn test_cli_default_git_mode() {
     // When no files are specified, should default to git mode
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run"])
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run"])
         .current_dir(".")
         .output()
         .expect("Failed to execute binary");
@@ -194,8 +187,8 @@ fn test_cli_outside_git_repo() {
     let env = TestEnvironment::new();
 
     // Run in temp directory without git repo
-    let output = Command::new(&get_binary_path())
-        .args(&["--dry-run", "--git"])
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+        .args(["--dry-run", "--git"])
         .current_dir(env.path())
         .output()
         .expect("Failed to execute binary");
@@ -211,22 +204,14 @@ fn test_cli_outside_git_repo() {
 fn test_cli_binary_exists() {
     // Build first to ensure binary exists
     let build_result = std::process::Command::new("cargo")
-        .args(&["build", "--release"])
+        .args(["build", "--release"])
         .output()
         .expect("Failed to run cargo build");
 
     assert!(build_result.status.success(), "Cargo build failed");
 
-    // Verify that the binary exists and is executable
-    let binary_path = get_binary_path();
-    assert!(
-        binary_path.exists(),
-        "Binary should exist at {}",
-        binary_path.display()
-    );
-
     // Try to run the binary with --help to ensure it's executable
-    let output = Command::new(&get_binary_path()).arg("--help").output();
+    let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore")).arg("--help").output();
 
     assert!(output.is_ok(), "Binary should be executable");
 }

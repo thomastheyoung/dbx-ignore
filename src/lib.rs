@@ -75,10 +75,13 @@ pub fn run(config: Config) -> Result<()> {
         return Ok(());
     }
 
+    // Cache current directory for the entire run
+    let current_dir = std::env::current_dir()?;
+
     // Handle watch/unwatch modes
     match config.action {
         Action::Watch => {
-            let repo_path = std::env::current_dir()?;
+            let repo_path = current_dir.clone();
             
             // Check if daemon is already running
             if let Some(status) = core::daemon::DaemonStatus::read(&repo_path)? {
@@ -98,7 +101,7 @@ pub fn run(config: Config) -> Result<()> {
                 mark_config.action = Action::Ignore;
                 
                 // Process the files/patterns
-                process_files_and_patterns(&mark_config)?;
+                process_files_and_patterns(&mark_config, &current_dir)?;
                 
                 if !config.quiet {
                     println!();
@@ -134,7 +137,7 @@ pub fn run(config: Config) -> Result<()> {
             return Ok(());
         }
         Action::Unwatch => {
-            let repo_path = std::env::current_dir()?;
+            let repo_path = current_dir.clone();
             
             if let Some(status) = core::daemon::DaemonStatus::read(&repo_path)? {
                 core::daemon::stop_daemon(status.pid)?;
@@ -148,10 +151,10 @@ pub fn run(config: Config) -> Result<()> {
         _ => {} // Continue with normal processing
     }
 
-    process_files_and_patterns(&config)
+    process_files_and_patterns(&config, &current_dir)
 }
 
-fn process_files_and_patterns(config: &Config) -> Result<()> {
+fn process_files_and_patterns(config: &Config, current_dir: &Path) -> Result<()> {
     let files_to_process = if config.git_mode && config.files.is_empty() {
         utils::git_utils::get_git_ignored_files()?
     } else {
@@ -184,9 +187,9 @@ fn process_files_and_patterns(config: &Config) -> Result<()> {
     let operation_count = Arc::new(AtomicUsize::new(0));
     
     // Track files that are being marked/unmarked
-    let current_dir = std::env::current_dir()?;
-    let tracked = core::tracked_files::TrackedFiles::load(&current_dir)?;
-    let tracked_mutex = Arc::new(std::sync::Mutex::new(tracked));
+    let mut tracked = core::tracked_files::TrackedFiles::load(current_dir)?;
+    let files_to_add = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let files_to_remove = Arc::new(std::sync::Mutex::new(Vec::new()));
 
     let progress = if !config.quiet && !config.verbose {
         let pb = ProgressBar::new(total_files as u64);
@@ -209,17 +212,16 @@ fn process_files_and_patterns(config: &Config) -> Result<()> {
                 pb.set_message(format!("Processing: {}", path.display()));
             }
 
-            match process_path(path, &config) {
+            match process_path(path, config) {
                 Ok(operations_performed) => {
                     processed_count.fetch_add(1, Ordering::Relaxed);
                     operation_count.fetch_add(operations_performed, Ordering::Relaxed);
                     
-                    // Update tracked files based on action
+                    // Collect files to update after parallel processing
                     if operations_performed > 0 && !config.dry_run {
-                        let mut tracked = tracked_mutex.lock().unwrap();
                         match config.action {
-                            Action::Ignore => tracked.add_files(&[path.clone()]),
-                            Action::Reset => tracked.remove_files(&[path.clone()]),
+                            Action::Ignore => files_to_add.lock().unwrap().push(path.clone()),
+                            Action::Reset => files_to_remove.lock().unwrap().push(path.clone()),
                             _ => {}
                         }
                     }
@@ -270,9 +272,18 @@ fn process_files_and_patterns(config: &Config) -> Result<()> {
     let final_processed = processed_count.load(Ordering::Relaxed);
     let final_operations = operation_count.load(Ordering::Relaxed);
 
-    // Save tracked files state and patterns
+    // Apply collected changes and save tracked files state
     if !config.dry_run && (config.action == Action::Ignore || config.action == Action::Reset) {
-        let mut tracked = tracked_mutex.lock().unwrap();
+        // Apply file changes collected during parallel processing
+        let files_to_add = files_to_add.lock().unwrap();
+        if !files_to_add.is_empty() {
+            tracked.add_files(&files_to_add);
+        }
+        
+        let files_to_remove = files_to_remove.lock().unwrap();
+        if !files_to_remove.is_empty() {
+            tracked.remove_files(&files_to_remove);
+        }
         
         // Store patterns if we're ignoring files
         if config.action == Action::Ignore && !config.patterns.is_empty() {
@@ -281,7 +292,7 @@ fn process_files_and_patterns(config: &Config) -> Result<()> {
             tracked.remove_patterns(&config.patterns);
         }
         
-        tracked.save(&current_dir)?;
+        tracked.save(current_dir)?;
     }
 
     if !config.quiet {
@@ -306,91 +317,122 @@ fn process_files_and_patterns(config: &Config) -> Result<()> {
 }
 
 
+/// Check if a path string contains glob pattern characters
+pub fn is_glob_pattern(path_str: &str) -> bool {
+    path_str.contains('*') || path_str.contains('?') || path_str.contains('[')
+}
+
+/// Classification of path types for special handling
+enum PathType {
+    CurrentDirectory,
+    GitIgnoreFile,
+    Regular,
+}
+
+/// Classify a path for special handling
+fn classify_path(path: &Path) -> PathType {
+    // Check if it's the current directory
+    if path.to_str() == Some(".") || path.file_name().and_then(|n| n.to_str()) == Some(".") {
+        PathType::CurrentDirectory
+    }
+    // Check if it's a .gitignore file
+    else if path.file_name().and_then(|n| n.to_str()) == Some(".gitignore") {
+        PathType::GitIgnoreFile
+    }
+    else {
+        PathType::Regular
+    }
+}
+
+/// Check if a path is a hidden file (starts with .)
+fn is_hidden_file(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .map(|name| name.starts_with('.'))
+        .unwrap_or(false)
+}
+
+/// Process a glob pattern and add matching files to items
+/// Returns true if any matches were found
+fn process_glob_pattern(pattern: &str, items: &mut Vec<PathBuf>) -> Result<bool> {
+    let initial_count = items.len();
+    
+    match glob::glob(pattern) {
+        Ok(mut glob_paths) => {
+            for entry in &mut glob_paths {
+                match entry {
+                    Ok(p) => {
+                        if p.exists() {
+                            items.push(p);
+                        }
+                    }
+                    Err(e) => {
+                        return Err(anyhow::anyhow!("Glob error: {}", e));
+                    }
+                }
+            }
+            Ok(items.len() > initial_count)
+        }
+        Err(e) => {
+            Err(anyhow::anyhow!("Invalid pattern '{}': {}", pattern, e))
+        }
+    }
+}
+
 fn get_files_from_paths(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
     let mut items = Vec::new();
-    
-    // Separate patterns from regular paths
     let mut regular_paths = Vec::new();
+    let mut empty_patterns = Vec::new();
     
+    // Process each path, categorizing as pattern or regular path
     for path in paths {
         let path_str = path.to_string_lossy();
         
-        // Check if this is a pattern
-        if path_str.contains('*') || path_str.contains('?') || path_str.contains('[') {
-            // Use glob to expand the pattern
-            match glob::glob(&path_str) {
-                Ok(mut paths) => {
-                    let mut found_any = false;
-                    for entry in &mut paths {
-                        match entry {
-                            Ok(p) => {
-                                if p.exists() {
-                                    items.push(p);
-                                    found_any = true;
-                                }
-                            }
-                            Err(e) => {
-                                return Err(anyhow::anyhow!("Glob error: {}", e));
-                            }
-                        }
-                    }
-                    if !found_any {
-                        // Pattern didn't match any files
-                        // Store this for error reporting later
+        if is_glob_pattern(&path_str) {
+            // Handle glob patterns
+            match process_glob_pattern(&path_str, &mut items) {
+                Ok(found_matches) => {
+                    if !found_matches {
+                        empty_patterns.push(path_str.to_string());
                     }
                 }
-                Err(e) => {
-                    return Err(anyhow::anyhow!("Invalid pattern '{}': {}", path_str, e));
-                }
+                Err(e) => return Err(e),
             }
         } else {
             regular_paths.push(path.clone());
         }
     }
     
-    // Check if no files were found from patterns
-    if paths.iter().any(|p| {
-        let s = p.to_string_lossy();
-        s.contains('*') || s.contains('?') || s.contains('[')
-    }) && items.is_empty() {
-        let pattern_strings: Vec<String> = paths.iter()
-            .filter(|p| {
-                let s = p.to_string_lossy();
-                s.contains('*') || s.contains('?') || s.contains('[')
-            })
-            .map(|p| p.display().to_string())
-            .collect();
-        return Err(anyhow::anyhow!("No files found matching patterns: {}", pattern_strings.join(", ")));
+    // Report error if any patterns matched nothing
+    if !empty_patterns.is_empty() {
+        return Err(anyhow::anyhow!("No files found matching patterns: {}", empty_patterns.join(", ")));
     }
     
     // Process regular paths
     for path in regular_paths {
-        if path.exists() {
-            // Special case: if path is '.' (current directory), expand to contents
-            if path.to_str() == Some(".") || path.file_name().and_then(|n| n.to_str()) == Some(".") {
-                // Get all files and directories in current directory
+        if !path.exists() {
+            return Err(anyhow::anyhow!("Path not found: {}", path.display()));
+        }
+
+        match classify_path(&path) {
+            PathType::CurrentDirectory => {
+                // Expand current directory contents, skipping hidden files
                 for entry in std::fs::read_dir(path)? {
-                    let entry = entry?;
-                    let entry_path = entry.path();
-                    // Skip hidden files starting with '.' (like .git, .gitignore, etc.)
-                    if let Some(name) = entry_path.file_name().and_then(|n| n.to_str()) {
-                        if !name.starts_with('.') {
-                            items.push(entry_path);
-                        }
+                    let entry_path = entry?.path();
+                    if !is_hidden_file(&entry_path) {
+                        items.push(entry_path);
                     }
                 }
             }
-            // Check if this is a .gitignore file
-            else if path.file_name().and_then(|n| n.to_str()) == Some(".gitignore") {
-                // Process .gitignore file and add the ignored files to the list
+            PathType::GitIgnoreFile => {
+                // Process .gitignore file and add the ignored files
                 let gitignore_files = utils::git_utils::get_git_ignored_files_from_gitignore(&path)?;
                 items.extend(gitignore_files);
-            } else {
-                // Add the path directly without walking directories
-                items.push(path.clone());
             }
-        } else {
-            return Err(anyhow::anyhow!("Path not found: {}", path.display()));
+            PathType::Regular => {
+                // Add the path directly
+                items.push(path);
+            }
         }
     }
     
@@ -411,7 +453,7 @@ fn process_path(path: &Path, config: &Config) -> Result<usize> {
                 }
                 Ok(count)
             } else {
-                utils::platform_utils::try_add_ignore_attributes(path)
+                utils::platform_utils::add_ignore_attributes(path, true)
             }
         }
         Action::Reset => {
@@ -425,7 +467,7 @@ fn process_path(path: &Path, config: &Config) -> Result<usize> {
                 }
                 Ok(count)
             } else {
-                utils::platform_utils::try_remove_ignore_attributes(path)
+                utils::platform_utils::remove_ignore_attributes(path)
             }
         }
         Action::Watch | Action::Unwatch => {
@@ -435,43 +477,3 @@ fn process_path(path: &Path, config: &Config) -> Result<usize> {
     }
 }
 
-/// Process multiple files and return statistics
-pub fn process_files(files: Vec<PathBuf>) -> Result<ProcessStats> {
-    use rayon::prelude::*;
-    
-    let total = files.len();
-    let already_marked = Arc::new(AtomicUsize::new(0));
-    let newly_marked = Arc::new(AtomicUsize::new(0));
-    let errors = Arc::new(AtomicUsize::new(0));
-    
-    files.par_iter().for_each(|path| {
-        use crate::utils::platform_utils;
-        
-        // Check if already marked
-        if platform_utils::has_any_ignore_attribute(path) {
-            already_marked.fetch_add(1, Ordering::Relaxed);
-        } else {
-            // Try to add marker
-            if platform_utils::add_all_ignore_attributes(path).is_err() {
-                errors.fetch_add(1, Ordering::Relaxed);
-            } else {
-                newly_marked.fetch_add(1, Ordering::Relaxed);
-            }
-        }
-    });
-    
-    Ok(ProcessStats {
-        total,
-        already_marked: already_marked.load(Ordering::Relaxed),
-        newly_marked: newly_marked.load(Ordering::Relaxed),
-        errors: errors.load(Ordering::Relaxed),
-    })
-}
-
-#[derive(Debug)]
-pub struct ProcessStats {
-    pub total: usize,
-    pub already_marked: usize,
-    pub newly_marked: usize,
-    pub errors: usize,
-}

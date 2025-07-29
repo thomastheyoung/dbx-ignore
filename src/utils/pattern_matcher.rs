@@ -81,11 +81,6 @@ pub fn find_files_matching_patterns(base_path: &Path, patterns: &[String]) -> Re
     matcher.find_matching_files(base_path)
 }
 
-/// Check if a single file matches patterns (useful for tests)
-pub fn file_matches_patterns(base_path: &Path, file_path: &Path, patterns: &[String]) -> Result<bool> {
-    matches_patterns(base_path, file_path, patterns)
-}
-
 /// Check if a file matches any of the given patterns
 pub fn matches_patterns(base_path: &Path, file_path: &Path, patterns: &[String]) -> Result<bool> {
     let matcher = PatternMatcher::new(base_path, patterns)?;

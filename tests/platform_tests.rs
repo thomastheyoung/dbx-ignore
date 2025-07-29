@@ -3,7 +3,6 @@ mod common;
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 use dbx_ignore::platforms::unsupported::UnsupportedHandler;
 use dbx_ignore::traits::PlatformHandler;
-use std::path::Path;
 
 #[cfg(target_os = "macos")]
 use dbx_ignore::platforms::macos::MacOSHandler;

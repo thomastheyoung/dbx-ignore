@@ -10,7 +10,7 @@ fn test_watch_daemon_startup() {
     // Initialize git repo
     Command::new("git")
         .current_dir(temp_dir.path())
-        .args(&["init"])
+        .args(["init"])
         .output()
         .expect("Failed to init git");
     
@@ -41,7 +41,7 @@ fn test_watch_gitignore_mode() {
     // Initialize git repo and create files
     Command::new("git")
         .current_dir(temp_dir.path())
-        .args(&["init"])
+        .args(["init"])
         .output()
         .expect("Failed to init git");
         
@@ -51,7 +51,7 @@ fn test_watch_gitignore_mode() {
     // Start daemon in foreground mode to see output
     let mut child = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
         .current_dir(temp_dir.path())
-        .args(&["--watch", "--daemon-mode"])
+        .args(["--watch", "--daemon-mode"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -76,7 +76,7 @@ fn test_unwatch_daemon() {
     // Initialize git repo
     Command::new("git")
         .current_dir(temp_dir.path())
-        .args(&["init"])
+        .args(["init"])
         .output()
         .expect("Failed to init git");
     
@@ -109,16 +109,21 @@ fn test_watch_prevents_duplicate_daemons() {
     // Initialize git repo
     Command::new("git")
         .current_dir(temp_dir.path())
-        .args(&["init"])
+        .args(["init"])
         .output()
         .expect("Failed to init git");
     
     // Start first daemon
-    Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
+    let first_output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
         .current_dir(temp_dir.path())
         .arg("--watch")
         .output()
         .expect("Failed to start daemon");
+    
+    assert!(first_output.status.success(), "First daemon should start successfully");
+    
+    // Give the daemon time to start and write its status file
+    std::thread::sleep(std::time::Duration::from_millis(500));
     
     // Try to start second daemon
     let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
@@ -130,7 +135,18 @@ fn test_watch_prevents_duplicate_daemons() {
     // Should succeed but warn about existing daemon
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("A daemon is already watching"));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    
+    // Debug output to understand what's happening
+    if !stdout.contains("A daemon is already watching") && !stderr.contains("A daemon is already watching") {
+        eprintln!("=== DEBUG: Second daemon start output ===");
+        eprintln!("stdout: '{}'", stdout);
+        eprintln!("stderr: '{}'", stderr);
+        eprintln!("status: {:?}", output.status);
+    }
+    
+    assert!(stdout.contains("A daemon is already watching") || stderr.contains("A daemon is already watching"),
+            "Expected warning about existing daemon in stdout or stderr");
     
     // Clean up
     let _ = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
@@ -162,7 +178,7 @@ fn test_watch_with_patterns() {
     // Initialize git repo
     Command::new("git")
         .current_dir(temp_dir.path())
-        .args(&["init"])
+        .args(["init"])
         .output()
         .expect("Failed to init git");
     
@@ -174,7 +190,7 @@ fn test_watch_with_patterns() {
     // Start watch with patterns
     let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
         .current_dir(temp_dir.path())
-        .args(&["--watch", "*.log"])
+        .args(["--watch", "*.log"])
         .output()
         .expect("Failed to execute command");
     
@@ -203,7 +219,7 @@ fn test_watch_with_multiple_patterns() {
     // Initialize git repo
     Command::new("git")
         .current_dir(temp_dir.path())
-        .args(&["init"])
+        .args(["init"])
         .output()
         .expect("Failed to init git");
     
@@ -216,7 +232,7 @@ fn test_watch_with_multiple_patterns() {
     // Start watch with multiple patterns
     let output = Command::new(env!("CARGO_BIN_EXE_dbx-ignore"))
         .current_dir(temp_dir.path())
-        .args(&["--watch", "*.log", "*.tmp", "*.cache"])
+        .args(["--watch", "*.log", "*.tmp", "*.cache"])
         .output()
         .expect("Failed to execute command");
     

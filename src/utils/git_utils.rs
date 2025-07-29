@@ -36,25 +36,21 @@ pub fn get_git_ignored_files_in_path(path: &Path) -> Result<Vec<PathBuf>> {
     
     // Collect all files
     let mut all_files = HashSet::new();
-    for entry in all_files_builder.build() {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            // Skip .git directory and only collect files (not directories)
-            if !path.components().any(|c| c.as_os_str() == ".git") && path.is_file() {
-                all_files.insert(path.to_path_buf());
-            }
+    for entry in all_files_builder.build().flatten() {
+        let path = entry.path();
+        // Skip .git directory and only collect files (not directories)
+        if !path.components().any(|c| c.as_os_str() == ".git") && path.is_file() {
+            all_files.insert(path.to_path_buf());
         }
     }
     
     // Collect non-ignored files
     let mut non_ignored_files = HashSet::new();
-    for entry in filtered_builder.build() {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            // Skip .git directory and only collect files (not directories)
-            if !path.components().any(|c| c.as_os_str() == ".git") && path.is_file() {
-                non_ignored_files.insert(path.to_path_buf());
-            }
+    for entry in filtered_builder.build().flatten() {
+        let path = entry.path();
+        // Skip .git directory and only collect files (not directories)
+        if !path.components().any(|c| c.as_os_str() == ".git") && path.is_file() {
+            non_ignored_files.insert(path.to_path_buf());
         }
     }
     

@@ -10,38 +10,22 @@ pub fn has_any_ignore_attribute(path: &Path) -> bool {
         .any(|attr| CurrentPlatform::has_attribute(path, attr).unwrap_or(false))
 }
 
-/// Add all target attributes to a path
-pub fn add_all_ignore_attributes(path: &Path) -> Result<()> {
+/// Add all target attributes to a path, optionally returning the count
+/// If skip_existing is true, will skip attributes that already exist
+pub fn add_ignore_attributes(path: &Path, skip_existing: bool) -> Result<usize> {
+    let mut count = 0;
     for attr in CurrentPlatform::get_target_attributes() {
+        if skip_existing && CurrentPlatform::has_attribute(path, attr)? {
+            continue;
+        }
         CurrentPlatform::add_attribute(path, attr)?;
-    }
-    Ok(())
-}
-
-/// Remove all target attributes from a path
-pub fn remove_all_ignore_attributes(path: &Path) -> Result<()> {
-    for attr in CurrentPlatform::get_target_attributes() {
-        if CurrentPlatform::has_attribute(path, attr)? {
-            CurrentPlatform::remove_attribute(path, attr)?;
-        }
-    }
-    Ok(())
-}
-
-/// Try to add all attributes, returning the number added
-pub fn try_add_ignore_attributes(path: &Path) -> Result<usize> {
-    let mut count = 0;
-    for attr in CurrentPlatform::get_target_attributes() {
-        if !CurrentPlatform::has_attribute(path, attr)? {
-            CurrentPlatform::add_attribute(path, attr)?;
-            count += 1;
-        }
+        count += 1;
     }
     Ok(count)
 }
 
-/// Try to remove all attributes, returning the number removed
-pub fn try_remove_ignore_attributes(path: &Path) -> Result<usize> {
+/// Remove all target attributes from a path, returning the count removed
+pub fn remove_ignore_attributes(path: &Path) -> Result<usize> {
     let mut count = 0;
     for attr in CurrentPlatform::get_target_attributes() {
         if CurrentPlatform::has_attribute(path, attr)? {
@@ -51,6 +35,7 @@ pub fn try_remove_ignore_attributes(path: &Path) -> Result<usize> {
     }
     Ok(count)
 }
+
 
 /// Helper function for consistent IO error handling across platforms
 /// 
